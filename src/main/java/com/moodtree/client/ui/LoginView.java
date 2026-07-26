@@ -36,9 +36,20 @@ public class LoginView extends VBox {
         setPadding(new Insets(40));
         setStyle(Theme.page());
 
-        Label logo = new Label("🌳");
-        logo.setStyle("-fx-font-size: 56px;");
-        Label title = new Label("心情树洞");
+        Label logo = new Label();
+        // 登录页顶部彩色圆点树 logo（无底 PNG）；加载失败退回 emoji
+        try {
+            javafx.scene.image.ImageView logoImg = new javafx.scene.image.ImageView(
+                    new javafx.scene.image.Image(getClass().getResourceAsStream("/logo.png")));
+            logoImg.setFitWidth(88);
+            logoImg.setFitHeight(88);
+            logoImg.setPreserveRatio(true);
+            logo.setGraphic(logoImg);
+        } catch (Exception ignored) {
+            logo.setText("🌳");
+            logo.setStyle("-fx-font-size: 56px;");
+        }
+        Label title = new Label("念今心");
         title.setStyle(Theme.h1());
         Label sub = new Label("把心情种下，让它慢慢发芽");
         sub.setStyle(Theme.soft());

@@ -1,8 +1,8 @@
 @echo off
-REM ===== MoodTree client - one-click packaging =====
+REM ===== NianJinXin client - one-click packaging =====
 REM Output:
-REM   1) portable: target\dist\MoodTree\  (copy the folder anywhere, run MoodTree.exe)
-REM   2) installer: target\dist\MoodTree-1.0.0.exe  (needs WiX, already on PATH below)
+REM   1) portable: target\dist\NianJinXin\  (copy the folder anywhere, run NianJinXin.exe)
+REM   2) installer: target\dist\NianJinXin-1.0.0.exe  (needs WiX, already on PATH below)
 chcp 65001 >nul
 cd /d %~dp0
 
@@ -30,24 +30,26 @@ if exist target\dist rmdir /s /q target\dist
 
 echo [3/3] jpackage app-image (portable)...
 "%JPACKAGE%" --type app-image ^
-  --name MoodTree ^
+  --name NianJinXin ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
   --app-version 1.0.0 ^
-  --vendor MoodTree ^
+  --vendor NianJinXin ^
+  --icon src\main\resources\logo.ico ^
   --dest target\dist
 if errorlevel 1 (echo APP-IMAGE FAILED & pause & exit /b 1)
-echo portable OK: target\dist\MoodTree\MoodTree.exe
+echo portable OK: target\dist\NianJinXin\NianJinXin.exe
 echo.
 
 echo building exe installer (WiX)...
 "%JPACKAGE%" --type exe ^
-  --name MoodTree ^
+  --name NianJinXin ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
   --app-version 1.0.0 ^
-  --vendor MoodTree ^
-  --description "MoodTree desktop client" ^
+  --vendor NianJinXin ^
+  --description "NianJinXin desktop client" ^
+  --icon src\main\resources\logo.ico ^
   --win-menu --win-shortcut ^
   --win-dir-chooser ^
   --dest target\dist
@@ -55,6 +57,6 @@ if errorlevel 1 (echo INSTALLER FAILED (portable is fine) & pause & exit /b 1)
 
 echo.
 echo ALL DONE:
-echo   portable  target\dist\MoodTree\
-echo   installer target\dist\MoodTree-1.0.0.exe
+echo   portable  target\dist\NianJinXin\
+echo   installer target\dist\NianJinXin-1.0.0.exe
 pause

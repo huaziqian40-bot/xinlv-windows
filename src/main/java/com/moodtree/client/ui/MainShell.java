@@ -43,8 +43,17 @@ public class MainShell extends BorderPane {
         sidebar.setPadding(new Insets(20, 12, 20, 12));
         sidebar.setStyle("-fx-background-color: " + Theme.SIDEBAR + ";");
 
-        Label logo = new Label("🌳 心情树洞");
+        Label logo = new Label("念今心");
         logo.setStyle(Theme.h2());
+        // 侧边栏顶部放彩色圆点树 logo（无底 PNG）
+        try {
+            javafx.scene.image.ImageView logoImg = new javafx.scene.image.ImageView(
+                    new javafx.scene.image.Image(getClass().getResourceAsStream("/logo.png")));
+            logoImg.setFitWidth(30);
+            logoImg.setFitHeight(30);
+            logoImg.setPreserveRatio(true);
+            logo.setGraphic(logoImg);
+        } catch (Exception ignored) { }
         Label user = new Label(app.loggedIn() ? app.config.username() : "游客 · 数据只在本机");
         user.setStyle(Theme.soft());
         VBox head = new VBox(2, logo, user);
