@@ -118,12 +118,18 @@ public class MainShell extends BorderPane {
     private javafx.scene.Node buildView(String key) {
         return switch (key) {
             case "calendar" -> new CalendarView(app);
+            case "recommend" -> new RecommendView(app);
+            case "chat" -> new ChatView(app);
+            case "me" -> new MeView(app);
             default -> new PlaceholderView(key);
         };
     }
 
     /** 进入主界面后的首次同步 */
     public void onShown() {
+        // 开发调试：-Dmoodtree.view=recommend 可启动后直接跳到指定页
+        String jump = System.getProperty("moodtree.view");
+        if (jump != null && navButtons.containsKey(jump)) show(jump);
         syncNow();
     }
 

@@ -1,0 +1,271 @@
+/* 推荐页：选心情 → 音乐/小行动/心理小知识/视频。
+ * 在线时调 /api/v1/recommend/（与网页版同一套推荐逻辑）；
+ * 离线时用本地目录缓存（登录时同步下来的）自行筛选，音乐仅在线可播。 */
+package com.moodtree.client.ui;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.moodtree.client.AppContext;
+import com.moodtree.client.model.MoodMeta;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class RecommendView extends VBox implements Refreshable {
+
+    private final AppContext app;
+    private final FlowPane moodBar = new FlowPane(8, 8);
+    private final VBox resultBox = new VBox(14);
+    private final Label stateLabel = new Label("选一个心情，给你一些陪伴");
+    private String selectedMood;
+    private MediaPlayer player;          // 同时只放一首
+    private Button playingBtn;
+
+    public RecommendView(AppContext app) {
+        this.app = app;
+        setSpacing(16);
+        setPadding(new Insets(24));
+        setStyle(Theme.page());
+
+        Label title = new Label("今日推荐");
+        title.setStyle(Theme.h1());
+
+        for (MoodMeta m : MoodMeta.all()) {
+            Button chip = new Button(m.emoji + " " + m.label);
+            chip.setStyle("-fx-background-color: " + m.color + "; -fx-background-radius: 20;"
+                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;");
+            chip.setOnAction(e -> select(m.key));
+            moodBar.getChildren().add(chip);
+        }
+
+        stateLabel.setStyle(Theme.soft());
+        resultBox.setFillWidth(true);
+
+        VBox body = new VBox(12, stateLabel, resultBox);
+        ScrollPane scroll = new ScrollPane(body);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+
+        getChildren().addAll(title, moodBar, scroll);
+    }
+
+    private void select(String mood) {
+        selectedMood = mood;
+        stopPlayer();
+        MoodMeta m = MoodMeta.of(mood);
+        stateLabel.setText("正在为你准备「" + m.label + "」的推荐…");
+        resultBox.getChildren().clear();
+        Bg.run(() -> {
+                    if (app.api.ping()) {
+                        return app.api.recommend(mood);          // 在线：服务器推荐
+                    }
+                    return offlineRecommend(mood);               // 离线：本地缓存推荐
+                },
+                this::render,
+                err -> stateLabel.setText("推荐加载失败：" + err.getMessage()));
+    }
+
+    /** 离线推荐：从目录缓存按心情筛选后随机挑几条（规则向服务端看齐：歌曲/活动/小知识/视频） */
+    private JsonObject offlineRecommend(String mood) throws Exception {
+        JsonObject rec = new JsonObject();
+        rec.addProperty("mood", mood);
+        rec.addProperty("offline", true);
+        rec.add("info", JsonParser.parseString("\"（离线推荐来自本地缓存）\""));
+
+        JsonArray songs = new JsonArray();
+        JsonArray activities = new JsonArray();
+        JsonArray tips = new JsonArray();
+        JsonObject video = null;
+
+        List<JsonObject> pool = new ArrayList<>();
+        for (String p : app.db.catalogAll("songs")) {
+            JsonObject o = JsonParser.parseString(p).getAsJsonObject();
+            if (hasMood(o, mood)) pool.add(o);
+        }
+        Collections.shuffle(pool);
+        pool.stream().limit(3).forEach(songs::add);
+
+        pool.clear();
+        for (String p : app.db.catalogAll("activities")) {
+            JsonObject o = JsonParser.parseString(p).getAsJsonObject();
+            if (hasMood(o, mood)) pool.add(o);
+        }
+        Collections.shuffle(pool);
+        pool.stream().limit(3).forEach(a -> activities.add(a.get("text")));
+
+        pool.clear();
+        for (String p : app.db.catalogAll("tips")) {
+            JsonObject o = JsonParser.parseString(p).getAsJsonObject();
+            if (!o.has("moods") || hasMood(o, mood)) pool.add(o);
+        }
+        Collections.shuffle(pool);
+        pool.stream().limit(2).forEach(tips::add);
+
+        for (String p : app.db.catalogAll("videos")) {
+            JsonObject o = JsonParser.parseString(p).getAsJsonObject();
+            if (hasMood(o, mood)) { video = o; break; }
+        }
+
+        rec.add("songs", songs);
+        rec.add("activities", activities);
+        rec.add("tips", tips);
+        if (video != null) rec.add("video", video);
+        return rec;
+    }
+
+    private boolean hasMood(JsonObject o, String mood) {
+        if (!o.has("moods") || !o.get("moods").isJsonArray()) return false;
+        for (JsonElement el : o.getAsJsonArray("moods")) {
+            if (mood.equals(el.getAsString())) return true;
+        }
+        return false;
+    }
+
+    private void render(JsonObject rec) {
+        MoodMeta m = MoodMeta.of(rec.get("mood").getAsString());
+        boolean offline = rec.has("offline") && rec.get("offline").getAsBoolean();
+        stateLabel.setText("给「" + m.label + "」的你" + (offline ? "（离线缓存内容）" : ""));
+        resultBox.getChildren().clear();
+
+        // ---- 音乐 ----
+        VBox songCard = card("🎵 听点音乐");
+        for (JsonElement el : rec.getAsJsonArray("songs")) {
+            JsonObject s = el.getAsJsonObject();
+            String text = s.get("title").getAsString() + " - " + s.get("artist").getAsString();
+            String url = s.has("url") && !s.get("url").isJsonNull() ? s.get("url").getAsString() : "";
+            Button play = new Button("▶");
+            play.setStyle(Theme.ghostBtn() + "-fx-text-fill: " + Theme.ACCENT + "; -fx-font-size: 14px;");
+            Label name = new Label(text);
+            name.setStyle("-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + ";");
+            HBox.setHgrow(name, Priority.ALWAYS);
+            name.setMaxWidth(Double.MAX_VALUE);
+            HBox row = new HBox(8, play, name);
+            row.setAlignment(Pos.CENTER_LEFT);
+            if (url.isEmpty() || offline) {
+                play.setDisable(true);   // 离线只有名字，音频在服务器上
+            } else {
+                play.setOnAction(e -> togglePlay(url, play));
+            }
+            songCard.getChildren().add(row);
+        }
+        resultBox.getChildren().add(songCard);
+
+        // ---- 小行动 ----
+        JsonArray acts = rec.getAsJsonArray("activities");
+        if (acts != null && acts.size() > 0) {
+            VBox actCard = card("🌱 可以试试这些小事");
+            for (JsonElement el : acts) {
+                Label t = new Label("· " + el.getAsString());
+                t.setWrapText(true);
+                t.setStyle("-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + ";");
+                actCard.getChildren().add(t);
+            }
+            resultBox.getChildren().add(actCard);
+        }
+
+        // ---- 心理小知识 ----
+        JsonArray tips = rec.getAsJsonArray("tips");
+        if (tips != null && tips.size() > 0) {
+            VBox tipCard = card("💡 心理小知识");
+            for (JsonElement el : tips) {
+                JsonObject t = el.getAsJsonObject();
+                Label h = new Label(t.get("title").getAsString());
+                h.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + Theme.INK + ";");
+                Label c = new Label(t.get("content").getAsString());
+                c.setWrapText(true);
+                c.setStyle("-fx-font-size: 13px; -fx-text-fill: " + Theme.INK + ";");
+                tipCard.getChildren().addAll(h, c);
+                if (t.has("source") && !t.get("source").getAsString().isEmpty()) {
+                    Label src = new Label("出处：" + t.get("source").getAsString());
+                    src.setStyle(Theme.soft());
+                    tipCard.getChildren().add(src);
+                }
+            }
+            resultBox.getChildren().add(tipCard);
+        }
+
+        // ---- 视频 ----
+        if (rec.has("video") && rec.get("video").isJsonObject()) {
+            JsonObject v = rec.getAsJsonObject();
+            VBox videoCard = card("🎬 看个视频");
+            Button link = new Button(v.get("title").getAsString() + "（浏览器打开）");
+            link.setStyle(Theme.ghostBtn() + "-fx-text-fill: " + Theme.ACCENT + ";");
+            link.setOnAction(e -> openBrowser(v.get("url").getAsString()));
+            videoCard.getChildren().add(link);
+            resultBox.getChildren().add(videoCard);
+        }
+
+        Region pad = new Region();
+        pad.setPrefHeight(20);
+        resultBox.getChildren().add(pad);
+    }
+
+    private VBox card(String title) {
+        Label h = new Label(title);
+        h.setStyle(Theme.h2());
+        VBox box = new VBox(8, h);
+        box.setPadding(new Insets(16));
+        box.setStyle(Theme.card());
+        return box;
+    }
+
+    private void togglePlay(String url, Button btn) {
+        if (playingBtn == btn) {
+            stopPlayer();
+            return;
+        }
+        stopPlayer();
+        try {
+            player = new MediaPlayer(new Media(url));
+            player.setOnEndOfMedia(this::stopPlayer);
+            player.setOnError(() -> Platform.runLater(this::stopPlayer));
+            player.play();
+            playingBtn = btn;
+            btn.setText("⏸");
+        } catch (Exception e) {
+            stateLabel.setText("播放失败：" + e.getMessage());
+        }
+    }
+
+    private void stopPlayer() {
+        if (player != null) {
+            try { player.stop(); player.dispose(); } catch (Exception ignored) { }
+            player = null;
+        }
+        if (playingBtn != null) {
+            playingBtn.setText("▶");
+            playingBtn = null;
+        }
+    }
+
+    private void openBrowser(String url) {
+        try {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+        } catch (Exception e) {
+            stateLabel.setText("打不开浏览器，请手动访问：" + url);
+        }
+    }
+
+    @Override
+    public void refresh() {
+        // 心情定义可能被目录刷新覆盖，重建心情条（简单起见整页重选当前心情）
+        if (selectedMood == null) return;
+    }
+}
