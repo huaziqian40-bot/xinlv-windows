@@ -113,6 +113,16 @@ public class ApiClient {
         return post("/api/v1/login/", body, false);
     }
 
+    /** 注册成功直接返回 {token, username, streak}（注册即登录，不用再调 login） */
+    public JsonObject register(String username, String password) throws ApiException {
+        JsonObject body = new JsonObject();
+        body.addProperty("username", username);
+        body.addProperty("password", password);
+        body.addProperty("agree", true);   // 界面上的勾选框已确认，这里如实上报
+        body.addProperty("device", config.device());
+        return post("/api/v1/register/", body, false);
+    }
+
     public void logout() throws ApiException {
         post("/api/v1/logout/", new JsonObject(), true);
     }
