@@ -141,34 +141,48 @@ public class RecommendView extends VBox implements Refreshable {
     private void render(JsonObject rec) {
         MoodMeta m = MoodMeta.of(rec.get("mood").getAsString());
         boolean offline = rec.has("offline") && rec.get("offline").getAsBoolean();
-        stateLabel.setText("给「" + m.label + "」的你" + (offline ? "（离线缓存内容）" : ""));
         resultBox.getChildren().clear();
 
-        // ---- 音乐 ----
-        VBox songCard = card("🎵 听点音乐");
-        for (JsonElement el : rec.getAsJsonArray("songs")) {
-            JsonObject s = el.getAsJsonObject();
-            String text = s.get("title").getAsString() + " - " + s.get("artist").getAsString();
-            String url = s.has("url") && !s.get("url").isJsonNull() ? s.get("url").getAsString() : "";
-            Button play = new Button("▶");
-            play.setStyle(Theme.ghostBtn() + "-fx-text-fill: " + Theme.ACCENT + "; -fx-font-size: 14px;");
-            Label name = new Label(text);
-            name.setStyle("-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + ";");
-            HBox.setHgrow(name, Priority.ALWAYS);
-            name.setMaxWidth(Double.MAX_VALUE);
-            HBox row = new HBox(8, play, name);
-            row.setAlignment(Pos.CENTER_LEFT);
-            if (url.isEmpty() || offline) {
-                play.setDisable(true);   // 离线只有名字，音频在服务器上
-            } else {
-                play.setOnAction(e -> togglePlay(url, play));
-            }
-            songCard.getChildren().add(row);
+        JsonArray songs = rec.getAsJsonArray("songs");
+        JsonArray acts = rec.getAsJsonArray("activities");
+        JsonArray tips = rec.getAsJsonArray("tips");
+        boolean hasVideo = rec.has("video") && rec.get("video").isJsonObject();
+        boolean any = (songs != null && songs.size() > 0) || (acts != null && acts.size() > 0)
+                || (tips != null && tips.size() > 0) || hasVideo;
+        if (!any) {
+            stateLabel.setText(offline
+                    ? "本地还没有推荐内容缓存：联网登录一次后，离线也能用推荐"
+                    : "这份心情暂时没有推荐内容");
+            return;
         }
-        resultBox.getChildren().add(songCard);
+        stateLabel.setText("给「" + m.label + "」的你" + (offline ? "（离线缓存内容）" : ""));
+
+        // ---- 音乐 ----
+        if (songs != null && songs.size() > 0) {
+            VBox songCard = card("🎵 听点音乐");
+            for (JsonElement el : songs) {
+                JsonObject s = el.getAsJsonObject();
+                String text = s.get("title").getAsString() + " - " + s.get("artist").getAsString();
+                String url = s.has("url") && !s.get("url").isJsonNull() ? s.get("url").getAsString() : "";
+                Button play = new Button("▶");
+                play.setStyle(Theme.ghostBtn() + "-fx-text-fill: " + Theme.ACCENT + "; -fx-font-size: 14px;");
+                Label name = new Label(text);
+                name.setStyle("-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + ";");
+                HBox.setHgrow(name, Priority.ALWAYS);
+                name.setMaxWidth(Double.MAX_VALUE);
+                HBox row = new HBox(8, play, name);
+                row.setAlignment(Pos.CENTER_LEFT);
+                if (url.isEmpty() || offline) {
+                    play.setDisable(true);   // 离线只有名字，音频在服务器上
+                } else {
+                    play.setOnAction(e -> togglePlay(url, play));
+                }
+                songCard.getChildren().add(row);
+            }
+            resultBox.getChildren().add(songCard);
+        }
 
         // ---- 小行动 ----
-        JsonArray acts = rec.getAsJsonArray("activities");
         if (acts != null && acts.size() > 0) {
             VBox actCard = card("🌱 可以试试这些小事");
             for (JsonElement el : acts) {
@@ -181,7 +195,6 @@ public class RecommendView extends VBox implements Refreshable {
         }
 
         // ---- 心理小知识 ----
-        JsonArray tips = rec.getAsJsonArray("tips");
         if (tips != null && tips.size() > 0) {
             VBox tipCard = card("💡 心理小知识");
             for (JsonElement el : tips) {

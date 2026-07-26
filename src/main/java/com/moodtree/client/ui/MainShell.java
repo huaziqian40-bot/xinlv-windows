@@ -45,7 +45,7 @@ public class MainShell extends BorderPane {
 
         Label logo = new Label("🌳 心情树洞");
         logo.setStyle(Theme.h2());
-        Label user = new Label(app.config.username());
+        Label user = new Label(app.loggedIn() ? app.config.username() : "游客 · 数据只在本机");
         user.setStyle(Theme.soft());
         VBox head = new VBox(2, logo, user);
         head.setPadding(new Insets(0, 0, 18, 8));
@@ -65,23 +65,29 @@ public class MainShell extends BorderPane {
         syncBtn.setStyle(Theme.ghostBtn());
         syncBtn.setMaxWidth(Double.MAX_VALUE);
         syncBtn.setOnAction(e -> syncNow());
+        syncBtn.setVisible(app.loggedIn());          // 游客没有云端可同步
+        syncBtn.setManaged(app.loggedIn());
 
-        Button logout = new Button("退出登录");
-        logout.setStyle(Theme.dangerBtn());
-        logout.setMaxWidth(Double.MAX_VALUE);
-        logout.setOnAction(e -> app.logout());
+        // 游客显示登录入口；已登录显示退出
+        Button authBtn = new Button(app.loggedIn() ? "退出登录" : "登录 / 注册");
+        authBtn.setStyle(app.loggedIn() ? Theme.dangerBtn()
+                : Theme.ghostBtn() + "-fx-text-fill: " + Theme.ACCENT_D + ";");
+        authBtn.setMaxWidth(Double.MAX_VALUE);
+        authBtn.setOnAction(e -> {
+            if (app.loggedIn()) app.logout();
+            else app.showLogin();
+        });
 
         sidebar.getChildren().add(head);
         sidebar.getChildren().addAll(navButtons.values());
-        sidebar.getChildren().addAll(spacer, syncStatus, syncBtn, logout);
+        sidebar.getChildren().addAll(spacer, syncStatus, syncBtn, authBtn);
         setLeft(sidebar);
 
-        // ---- 内容区 ----
+        // ---- 内容区（首页在 onShown 里决定，主题重建后能回到原页面）----
         content.setPadding(new Insets(0));
         setCenter(content);
-        show("calendar");
 
-        // 每分钟自动同步一次（失败静默）
+        // 登录用户每分钟自动同步一次（失败静默）
         Timeline timer = new Timeline(new KeyFrame(Duration.seconds(60), e -> syncNow()));
         timer.setCycleCount(Timeline.INDEFINITE);
         timer.play();
@@ -112,6 +118,7 @@ public class MainShell extends BorderPane {
         content.getChildren().setAll(view);
         navButtons.keySet().forEach(k -> styleNav(k, k.equals(key)));
         currentKey = key;
+        app.setLastViewKey(key);
         if (view instanceof Refreshable r) r.refresh();
     }
 
@@ -129,12 +136,20 @@ public class MainShell extends BorderPane {
     public void onShown() {
         // 开发调试：-Dmoodtree.view=recommend 可启动后直接跳到指定页
         String jump = System.getProperty("moodtree.view");
-        if (jump != null && navButtons.containsKey(jump)) show(jump);
+        if (jump != null && navButtons.containsKey(jump)) {
+            show(jump);
+        } else {
+            show(app.lastViewKey());
+        }
         syncNow();
     }
 
     public void syncNow() {
-        if (syncing || !app.loggedIn()) return;
+        if (syncing) return;
+        if (!app.loggedIn()) {
+            syncStatus.setText("游客模式：记录已保存在本机，登录后自动上云");
+            return;
+        }
         syncing = true;
         syncStatus.setText("同步中…");
         Bg.run(() -> app.sync.sync(),

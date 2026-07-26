@@ -31,7 +31,7 @@ public class Main extends Application {
         stage.setMinHeight(620);
         stage.setOnHidden(e -> app.close());
 
-        if (app.loggedIn()) {
+        if (app.canEnterMain()) {
             app.showMain();
         } else {
             app.showLogin();

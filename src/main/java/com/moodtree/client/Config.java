@@ -51,6 +51,17 @@ public class Config {
     public String username() { return props.getProperty("username", ""); }
     public void setUsername(String u) { props.setProperty("username", u); }
 
+    /** 游客模式：不登录也能用，数据只在本机；登录后游客期间的记录会随同步上云 */
+    public boolean guestMode() { return "1".equals(props.getProperty("guestMode", "")); }
+    public void setGuestMode(boolean g) { props.setProperty("guestMode", g ? "1" : ""); }
+
+    /** 主题预设 id（warm/night/mint/sakura）与自定义强调色（空 = 用主题默认） */
+    public String themeId() { return props.getProperty("themeId", "warm"); }
+    public void setThemeId(String id) { props.setProperty("themeId", id); }
+
+    public String accent() { return props.getProperty("accent", ""); }
+    public void setAccent(String hex) { props.setProperty("accent", hex == null ? "" : hex); }
+
     /** 设备备注：登录时上报给服务端，方便用户在多台设备间区分令牌 */
     public String device() {
         String d = props.getProperty("device", "").trim();

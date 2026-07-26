@@ -180,6 +180,17 @@ public class LocalDb implements AutoCloseable {
         }
     }
 
+    /** 有记录的日期（去重，新→旧），游客模式本地算连胜用 */
+    public synchronized List<LocalDate> listDistinctDates() throws SQLException {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT DISTINCT date FROM mood_entry WHERE deleted=0 ORDER BY date DESC")) {
+            List<LocalDate> list = new ArrayList<>();
+            while (rs.next()) list.add(LocalDate.parse(rs.getString(1)));
+            return list;
+        }
+    }
+
     // ---------- 键值对（last_sync 等） ----------
 
     public synchronized String kvGet(String key) throws SQLException {

@@ -77,6 +77,13 @@ public class ChatView extends VBox implements Refreshable {
     public void refresh() {
         if (historyLoaded) return;
         historyLoaded = true;
+        if (!app.loggedIn()) {
+            // 游客：树洞在服务器上，必须登录；日历/记录不受影响
+            showBanner("🌱 树洞要登录后才能陪你聊天。点左下角「登录 / 注册」，游客期间的记录不会丢。");
+            input.setDisable(true);
+            send.setDisable(true);
+            return;
+        }
         Bg.run(() -> {
                     if (!app.api.ping()) return null;      // 离线
                     return app.api.chatHistory();
