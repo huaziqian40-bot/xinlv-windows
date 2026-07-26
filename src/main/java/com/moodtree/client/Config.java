@@ -1,0 +1,75 @@
+/* 客户端本地配置：服务器地址、登录令牌、设备名。
+ * 存在 用户目录/.moodtree/config.properties，令牌也在里面（仅当前 Windows 用户可读）。 */
+package com.moodtree.client;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
+
+public class Config {
+
+    /** 默认服务器（frp 穿透公网地址），用户可在设置里改 */
+    public static final String DEFAULT_SERVER = "http://sc1.dpfrp.top:12345";
+
+    private final Path dir;
+    private final Path file;
+    private final Properties props = new Properties();
+
+    public Config() {
+        // 测试可用环境变量 MOODTREE_HOME 指定数据目录，避免污染真实用户数据
+        String override = System.getenv("MOODTREE_HOME");
+        dir = override != null && !override.isBlank()
+                ? Path.of(override)
+                : Path.of(System.getProperty("user.home"), ".moodtree");
+        file = dir.resolve("config.properties");
+        try {
+            Files.createDirectories(dir);
+            if (Files.exists(file)) {
+                try (InputStream in = Files.newInputStream(file)) {
+                    props.load(in);
+                }
+            }
+        } catch (IOException ignored) {
+            // 读不到就当全新配置，不挡启动
+        }
+    }
+
+    public String serverBase() {
+        String s = props.getProperty("serverBase", DEFAULT_SERVER).trim();
+        return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+    }
+
+    public void setServerBase(String s) { props.setProperty("serverBase", s.trim()); }
+
+    public String token() { return props.getProperty("token", ""); }
+    public void setToken(String t) { props.setProperty("token", t); }
+
+    public String username() { return props.getProperty("username", ""); }
+    public void setUsername(String u) { props.setProperty("username", u); }
+
+    /** 设备备注：登录时上报给服务端，方便用户在多台设备间区分令牌 */
+    public String device() {
+        String d = props.getProperty("device", "").trim();
+        if (!d.isEmpty()) return d;
+        try {
+            d = InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            d = "windows-pc";
+        }
+        return d + " (Windows)";
+    }
+
+    public Path dataDir() { return dir; }
+    public Path dbPath() { return dir.resolve("moodtree.db"); }
+
+    public void save() {
+        try (OutputStream out = Files.newOutputStream(file)) {
+            props.store(out, "moodtree client config");
+        } catch (IOException ignored) {
+        }
+    }
+}
