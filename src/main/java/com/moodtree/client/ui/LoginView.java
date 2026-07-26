@@ -49,7 +49,7 @@ public class LoginView extends VBox {
             logo.setText("🌳");
             logo.setStyle("-fx-font-size: 56px;");
         }
-        Label title = new Label("念今心");
+        Label title = new Label("心履");
         title.setStyle(Theme.h1());
         Label sub = new Label("把心情种下，让它慢慢发芽");
         sub.setStyle(Theme.soft());

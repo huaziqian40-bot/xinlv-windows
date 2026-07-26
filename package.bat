@@ -1,8 +1,8 @@
 @echo off
-REM ===== NianJinXin client - one-click packaging =====
+REM ===== XinLv client - one-click packaging =====
 REM Output:
-REM   1) portable: target\dist\NianJinXin\  (copy the folder anywhere, run NianJinXin.exe)
-REM   2) installer: target\dist\NianJinXin-1.0.0.exe  (needs WiX, already on PATH below)
+REM   1) portable: target\dist\XinLv\  (copy the folder anywhere, run XinLv.exe)
+REM   2) installer: target\dist\XinLv-1.0.0.exe  (needs WiX, already on PATH below)
 chcp 65001 >nul
 cd /d %~dp0
 
@@ -30,25 +30,25 @@ if exist target\dist rmdir /s /q target\dist
 
 echo [3/3] jpackage app-image (portable)...
 "%JPACKAGE%" --type app-image ^
-  --name NianJinXin ^
+  --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
   --app-version 1.0.0 ^
-  --vendor NianJinXin ^
+  --vendor XinLv ^
   --icon src\main\resources\logo.ico ^
   --dest target\dist
 if errorlevel 1 (echo APP-IMAGE FAILED & pause & exit /b 1)
-echo portable OK: target\dist\NianJinXin\NianJinXin.exe
+echo portable OK: target\dist\XinLv\XinLv.exe
 echo.
 
 echo building exe installer (WiX)...
 "%JPACKAGE%" --type exe ^
-  --name NianJinXin ^
+  --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
   --app-version 1.0.0 ^
-  --vendor NianJinXin ^
-  --description "NianJinXin desktop client" ^
+  --vendor XinLv ^
+  --description "XinLv desktop client" ^
   --icon src\main\resources\logo.ico ^
   --win-menu --win-shortcut ^
   --win-dir-chooser ^
@@ -57,6 +57,6 @@ if errorlevel 1 (echo INSTALLER FAILED (portable is fine) & pause & exit /b 1)
 
 echo.
 echo ALL DONE:
-echo   portable  target\dist\NianJinXin\
-echo   installer target\dist\NianJinXin-1.0.0.exe
+echo   portable  target\dist\XinLv\
+echo   installer target\dist\XinLv-1.0.0.exe
 pause

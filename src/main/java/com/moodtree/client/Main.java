@@ -1,4 +1,4 @@
-/* 念今心 Windows 桌面客户端 —— 程序入口。
+/* 心履 Windows 桌面客户端 —— 程序入口。
  * 离线可用、联网与服务器（/api/v1/）同步数据，界面独立于网页版。
  * 启动路由：本地有令牌 → 直接进主界面（后台同步）；否则进登录页。 */
 package com.moodtree.client;
@@ -20,13 +20,13 @@ public class Main extends Application {
             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
                     javafx.scene.control.Alert.AlertType.ERROR,
                     "启动失败：" + e.getMessage());
-            alert.setHeaderText("念今心启动失败");
+            alert.setHeaderText("心履启动失败");
             alert.showAndWait();
             Platform.exit();
             return;
         }
 
-        stage.setTitle("念今心");
+        stage.setTitle("心履");
         // 窗口/任务栏图标（彩色圆点树 logo）
         try {
             stage.getIcons().add(new javafx.scene.image.Image(

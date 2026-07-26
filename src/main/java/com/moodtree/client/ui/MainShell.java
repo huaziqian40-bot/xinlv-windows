@@ -43,7 +43,7 @@ public class MainShell extends BorderPane {
         sidebar.setPadding(new Insets(20, 12, 20, 12));
         sidebar.setStyle("-fx-background-color: " + Theme.SIDEBAR + ";");
 
-        Label logo = new Label("念今心");
+        Label logo = new Label("心履");
         logo.setStyle(Theme.h2());
         // 侧边栏顶部放彩色圆点树 logo（无底 PNG）
         try {
