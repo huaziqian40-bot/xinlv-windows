@@ -119,6 +119,10 @@ public class SyncEngine {
                     db.catalogPut(kind, o.get("id").getAsInt(), o.toString());
                 }
             }
+            // 心情定义也缓存下来，客户端离线兜底定义可被服务端覆盖
+            if (cat.has("moods")) {
+                db.kvSet("moods_cache", cat.get("moods").toString());
+            }
             return true;
         } catch (Exception e) {
             return false;
