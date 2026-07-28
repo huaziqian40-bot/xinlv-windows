@@ -1,17 +1,20 @@
-/* 记心情弹窗：10 个心情色块 + 备注。新建和编辑共用（编辑传入已有记录）。 */
+/* 记心情弹窗：10 个心情色块 + 强度无极滑动条 + 备注。新建和编辑共用（编辑传入已有记录）。 */
 package com.moodtree.client.ui;
 
 import com.moodtree.client.model.MoodEntry;
 import com.moodtree.client.model.MoodMeta;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.time.LocalDate;
@@ -51,6 +54,46 @@ public class MoodDialog extends Dialog<MoodEntry> {
             i++;
         }
 
+        // ---- 情绪强度无极滑动条 ----
+        int initLevel = editing != null ? editing.intensityLevel : 2;
+        int initPct = editing != null ? editing.intensityPercent : 50;
+        Label intensityLabel = new Label("情绪强度：");
+        intensityLabel.setStyle(Theme.soft());
+        Label intensityText = new Label(labelForPct(initPct));
+        intensityText.setStyle("-fx-font-size: 13px; -fx-text-fill: " + Theme.ACCENT + "; -fx-font-weight: bold;");
+        Slider intensitySlider = new Slider(0, 100, initPct);
+        intensitySlider.setShowTickMarks(false);
+        intensitySlider.setShowTickLabels(false);
+        intensitySlider.setPrefWidth(300);
+        // 选心情时显示强度行
+        VBox intensityRow = new VBox(6);
+        HBox intensityHead = new HBox(8, intensityLabel, intensityText);
+        intensityHead.setAlignment(Pos.CENTER_LEFT);
+        intensityRow.getChildren().addAll(intensityHead, intensitySlider);
+        intensityRow.setPadding(new Insets(8, 0, 0, 0));
+        intensityRow.setVisible(editing != null);  // 编辑时可见，新建时选心情后显示
+
+        // 选心情时显示强度行
+        group.selectedToggleProperty().addListener((obs, old, now) -> {
+            if (now != null) {
+                intensityRow.setVisible(true);
+                // 用选中心情色更新滑块样式
+                String key = (String) now.getUserData();
+                MoodMeta m = MoodMeta.of(key);
+                intensitySlider.setStyle(
+                    "-fx-control-inner-background: " + m.color + ";"
+                  + "-fx-accent: " + m.color + ";"
+                  + "-fx-background-color: " + m.color + "33;"
+                );
+            }
+        });
+
+        // 拖动更新标签
+        intensitySlider.valueProperty().addListener((obs, old, val) -> {
+            int pct = val.intValue();
+            intensityText.setText(labelForPct(pct));
+        });
+
         Label noteLabel = new Label("想说点什么？（可以留空）");
         noteLabel.setStyle(Theme.soft());
         TextArea note = new TextArea(editing == null ? "" : editing.note);
@@ -59,7 +102,7 @@ public class MoodDialog extends Dialog<MoodEntry> {
         note.setWrapText(true);
         note.setStyle(Theme.input());
 
-        VBox body = new VBox(14, grid, noteLabel, note);
+        VBox body = new VBox(14, grid, intensityRow, noteLabel, note);
         body.setPadding(new Insets(16));
         body.setAlignment(Pos.CENTER_LEFT);
         getDialogPane().setContent(body);
@@ -68,13 +111,31 @@ public class MoodDialog extends Dialog<MoodEntry> {
         setResultConverter(bt -> {
             if (bt != ButtonType.OK || group.getSelectedToggle() == null) return null;
             String mood = (String) group.getSelectedToggle().getUserData();
+            int pct = (int) intensitySlider.getValue();
+            int level = levelForPct(pct);
             if (editing != null) {
                 editing.mood = mood;
                 editing.note = note.getText().trim();
+                editing.intensityLevel = level;
+                editing.intensityPercent = pct;
                 editing.touchLocal();
                 return editing;
             }
-            return MoodEntry.create(date, mood, note.getText());
+            return MoodEntry.create(date, mood, note.getText(), level, pct);
         });
+    }
+
+    private static String labelForPct(int pct) {
+        if (pct <= 20) return "略微";
+        else if (pct <= 45) return "有点";
+        else if (pct <= 70) return "相当";
+        else return "十分";
+    }
+
+    private static int levelForPct(int pct) {
+        if (pct <= 20) return 1;
+        else if (pct <= 45) return 2;
+        else if (pct <= 70) return 3;
+        else return 4;
     }
 }

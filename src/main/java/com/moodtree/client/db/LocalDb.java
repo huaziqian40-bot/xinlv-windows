@@ -36,7 +36,9 @@ public class LocalDb implements AutoCloseable {
                           note TEXT DEFAULT '',
                           deleted INTEGER DEFAULT 0,
                           updated_at TEXT NOT NULL,
-                          dirty INTEGER DEFAULT 0
+                          dirty INTEGER DEFAULT 0,
+                          intensity_level INTEGER DEFAULT 0,
+                          intensity_percent INTEGER DEFAULT 0
                         )""");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_entry_date ON mood_entry(date)");
                 st.execute("""
@@ -62,11 +64,12 @@ public class LocalDb implements AutoCloseable {
     /** 本地新建/修改/删除后落库（dirty=1 等下次同步上传） */
     public synchronized void saveLocal(MoodEntry e) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("""
-                INSERT INTO mood_entry(uuid,date,at,mood,note,deleted,updated_at,dirty)
-                VALUES(?,?,?,?,?,?,?,1)
+                INSERT INTO mood_entry(uuid,date,at,mood,note,deleted,updated_at,dirty,intensity_level,intensity_percent)
+                VALUES(?,?,?,?,?,?,?,1,?,?)
                 ON CONFLICT(uuid) DO UPDATE SET
                   date=excluded.date, at=excluded.at, mood=excluded.mood, note=excluded.note,
-                  deleted=excluded.deleted, updated_at=excluded.updated_at, dirty=1
+                  deleted=excluded.deleted, updated_at=excluded.updated_at, dirty=1,
+                  intensity_level=excluded.intensity_level, intensity_percent=excluded.intensity_percent
                 """)) {
             fill(ps, e);
             ps.executeUpdate();
@@ -80,11 +83,12 @@ public class LocalDb implements AutoCloseable {
             return false;   // 本地更新或相同，不覆盖（本地脏数据等推送时由服务端 LWW 裁决）
         }
         try (PreparedStatement ps = conn.prepareStatement("""
-                INSERT INTO mood_entry(uuid,date,at,mood,note,deleted,updated_at,dirty)
-                VALUES(?,?,?,?,?,?,?,0)
+                INSERT INTO mood_entry(uuid,date,at,mood,note,deleted,updated_at,dirty,intensity_level,intensity_percent)
+                VALUES(?,?,?,?,?,?,?,0,?,?)
                 ON CONFLICT(uuid) DO UPDATE SET
                   date=excluded.date, at=excluded.at, mood=excluded.mood, note=excluded.note,
-                  deleted=excluded.deleted, updated_at=excluded.updated_at, dirty=0
+                  deleted=excluded.deleted, updated_at=excluded.updated_at, dirty=0,
+                  intensity_level=excluded.intensity_level, intensity_percent=excluded.intensity_percent
                 """)) {
             fill(ps, e);
             ps.executeUpdate();
@@ -100,6 +104,8 @@ public class LocalDb implements AutoCloseable {
         ps.setString(5, e.note);
         ps.setInt(6, e.deleted ? 1 : 0);
         ps.setString(7, e.updatedAt.toString());
+        ps.setInt(8, e.intensityLevel);
+        ps.setInt(9, e.intensityPercent);
     }
 
     private MoodEntry row(ResultSet rs) throws SQLException {
@@ -113,6 +119,8 @@ public class LocalDb implements AutoCloseable {
         e.deleted = rs.getInt("deleted") == 1;
         e.updatedAt = OffsetDateTime.parse(rs.getString("updated_at"));
         e.dirty = rs.getInt("dirty") == 1;
+        e.intensityLevel = rs.getInt("intensity_level");
+        e.intensityPercent = rs.getInt("intensity_percent");
         return e;
     }
 
@@ -188,6 +196,15 @@ public class LocalDb implements AutoCloseable {
             List<LocalDate> list = new ArrayList<>();
             while (rs.next()) list.add(LocalDate.parse(rs.getString(1)));
             return list;
+        }
+    }
+
+    /** 获取最新一条心情记录（非删除），用于情绪视觉叠色 */
+    public synchronized MoodEntry getLatest() throws SQLException {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT * FROM mood_entry WHERE deleted=0 ORDER BY date DESC, at DESC LIMIT 1")) {
+            return rs.next() ? row(rs) : null;
         }
     }
 

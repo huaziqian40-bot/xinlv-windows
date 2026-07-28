@@ -18,9 +18,17 @@ public class MoodEntry {
     public boolean deleted;            // 墓碑
     public OffsetDateTime updatedAt;   // LWW 比较依据
     public boolean dirty;              // 本地待上传
+    public int intensityLevel;         // 1-4（略微/有点/相当/十分），0=未设置
+    public int intensityPercent;       // 0-100
 
     /** 新建一条本地记录（离线也可用） */
     public static MoodEntry create(LocalDate date, String mood, String note) {
+        return create(date, mood, note, 2, 50);
+    }
+
+    /** 新建一条本地记录，含情绪强度 */
+    public static MoodEntry create(LocalDate date, String mood, String note,
+                                   int intensityLevel, int intensityPercent) {
         MoodEntry e = new MoodEntry();
         e.uuid = UUID.randomUUID().toString();
         e.date = date;
@@ -29,6 +37,8 @@ public class MoodEntry {
         e.note = note == null ? "" : note.trim();
         e.updatedAt = OffsetDateTime.now();
         e.dirty = true;
+        e.intensityLevel = intensityLevel;
+        e.intensityPercent = intensityPercent;
         return e;
     }
 
@@ -48,6 +58,8 @@ public class MoodEntry {
         o.addProperty("note", note);
         o.addProperty("deleted", deleted);
         o.addProperty("updated_at", updatedAt.toString());
+        o.addProperty("intensity_level", intensityLevel);
+        o.addProperty("intensity_percent", intensityPercent);
         return o;
     }
 
@@ -63,6 +75,8 @@ public class MoodEntry {
         e.deleted = o.has("deleted") && o.get("deleted").getAsBoolean();
         e.updatedAt = OffsetDateTime.parse(o.get("updated_at").getAsString());
         e.dirty = false;
+        e.intensityLevel = o.has("intensity_level") ? o.get("intensity_level").getAsInt() : 0;
+        e.intensityPercent = o.has("intensity_percent") ? o.get("intensity_percent").getAsInt() : 0;
         return e;
     }
 }

@@ -228,6 +228,11 @@ public class CalendarView extends BorderPane implements Refreshable {
             HBox.setHgrow(note, Priority.ALWAYS);
             note.setMaxWidth(Double.MAX_VALUE);
 
+            // 强度标签
+            String intensityLabel = intensityText(e.intensityLevel, e.intensityPercent);
+            Label intensity = new Label(intensityLabel);
+            intensity.setStyle("-fx-font-size: 11px; -fx-text-fill: " + Theme.ACCENT + ";");
+
             Region dirtyMark = new Region();
             if (e.dirty) {
                 Label dot = new Label("●待同步");
@@ -239,7 +244,7 @@ public class CalendarView extends BorderPane implements Refreshable {
             del.setStyle(Theme.dangerBtn());
             del.setOnAction(ev -> deleteEntry(e));
 
-            HBox row = new HBox(10, emoji, time, note, dirtyMark, del);
+            HBox row = new HBox(10, emoji, time, note, intensity, dirtyMark, del);
             row.setAlignment(Pos.CENTER_LEFT);
             row.setPadding(new Insets(8, 12, 8, 12));
             row.setStyle("-fx-background-color: " + m.color + "33; -fx-background-radius: 8; -fx-cursor: hand;");
@@ -252,6 +257,14 @@ public class CalendarView extends BorderPane implements Refreshable {
     private String weekName(LocalDate d) {
         String[] names = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
         return names[d.getDayOfWeek().getValue() - 1];
+    }
+
+    /** 根据强度百分位返回中文标签 */
+    private static String intensityText(int level, int pct) {
+        String[] labels = {"", "略微", "有点", "相当", "十分"};
+        String l = level >= 1 && level <= 4 ? labels[level] : "";
+        if (pct > 0) return l + " · " + pct + "%";
+        return l;
     }
 
     private void openMoodDialog(MoodEntry editing) {
