@@ -41,6 +41,9 @@ public class LocalDb implements AutoCloseable {
                           intensity_percent INTEGER DEFAULT 0
                         )""");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_entry_date ON mood_entry(date)");
+                // 迁移：旧库没有 intensity 列，ALTER TABLE 加回来（SQLite 不支持 IF NOT EXISTS）
+                try { st.execute("ALTER TABLE mood_entry ADD COLUMN intensity_level INTEGER DEFAULT 0"); } catch (SQLException ignored) { }
+                try { st.execute("ALTER TABLE mood_entry ADD COLUMN intensity_percent INTEGER DEFAULT 0"); } catch (SQLException ignored) { }
                 st.execute("""
                         CREATE TABLE IF NOT EXISTS kv(
                           key TEXT PRIMARY KEY,
