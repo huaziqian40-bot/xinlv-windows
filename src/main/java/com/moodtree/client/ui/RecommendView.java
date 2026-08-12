@@ -58,7 +58,8 @@ public class RecommendView extends VBox implements Refreshable {
             chip.setUserData(m.key);
             chip.setToggleGroup(moodGroup);
             chip.setStyle("-fx-background-radius: 20;"
-                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;");
+                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                    + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;");
             // 选中态/未选中态样式
             boolean isDark = Theme.isDarkTheme();
             String color = m.color;
@@ -75,6 +76,7 @@ public class RecommendView extends VBox implements Refreshable {
             chip.selectedProperty().addListener((obs, old, sel) -> {
                 chip.setStyle("-fx-background-radius: 20;"
                         + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                        + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;"
                         + "-fx-background-color: " + (sel ? selected : unselected) + ";"
                         + "-fx-text-fill: " + (sel ? color : textColor) + ";");
             });
@@ -82,6 +84,7 @@ public class RecommendView extends VBox implements Refreshable {
             chip.setStyle("-fx-background-color: " + unselected + ";"
                     + "-fx-background-radius: 20;"
                     + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                    + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;"
                     + "-fx-text-fill: " + textColor + ";");
             chip.setOnAction(e -> {
                 if (chip.isSelected()) select(m.key);

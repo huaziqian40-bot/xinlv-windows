@@ -19,7 +19,7 @@ if errorlevel 1 (echo BUILD FAILED & pause & exit /b 1)
 echo [2/3] staging module path (windows javafx jars only)...
 if exist target\pkg-lib rmdir /s /q target\pkg-lib
 mkdir target\pkg-lib
-copy /y target\moodtree-client-1.0.3.jar target\pkg-lib\ >nul
+copy /y target\moodtree-client-1.0.4.jar target\pkg-lib\ >nul
 copy /y target\lib\javafx-*-win.jar target\pkg-lib\ >nul
 copy /y target\lib\gson-*.jar target\pkg-lib\ >nul
 copy /y target\lib\sqlite-jdbc-*.jar target\pkg-lib\ >nul
@@ -33,7 +33,7 @@ echo [3/3] jpackage app-image (portable)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.3 ^
+  --app-version 1.0.4 ^
   --vendor XinLv ^
   --icon src\main\resources\logo.ico ^
   --dest target\dist
@@ -46,7 +46,7 @@ echo building exe installer (WiX)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.3 ^
+  --app-version 1.0.4 ^
   --vendor XinLv ^
   --description "XinLv desktop client" ^
   --icon src\main\resources\logo.ico ^

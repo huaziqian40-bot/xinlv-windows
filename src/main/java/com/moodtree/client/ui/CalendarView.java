@@ -59,12 +59,19 @@ public class CalendarView extends BorderPane implements Refreshable {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Button add = new Button("＋ 记心情");
-        add.setStyle(Theme.primaryBtn());
+        add.setStyle(Theme.primaryBtn() + "-fx-font-size: 16px; -fx-padding: 10 28;");
+        add.setMaxWidth(Double.MAX_VALUE);
         add.setOnAction(e -> openMoodDialog(null));
 
-        HBox top = new HBox(12, prev, monthLabel, next, spacer, add);
+        HBox top = new HBox(12, prev, monthLabel, next, spacer);
         top.setAlignment(Pos.CENTER_LEFT);
-        setTop(top);
+
+        // 记心情按钮独立一行，横向撑满日历宽度
+        HBox addRow = new HBox(add);
+        addRow.setPadding(new Insets(4, 0, 8, 0));
+
+        VBox header = new VBox(6, top, addRow);
+        setTop(header);
 
         // ---- 中间：月历格子 ----
         grid = new GridPane();
@@ -175,7 +182,7 @@ public class CalendarView extends BorderPane implements Refreshable {
 
             MoodMeta m = rep.get(date);
             Label emoji = new Label(m == null ? "" : m.emoji);
-            emoji.setStyle("-fx-font-size: 22px;");
+            emoji.setStyle("-fx-font-size: 22px; -fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;");
 
             VBox cell = new VBox(2, num, emoji);
             cell.setAlignment(Pos.TOP_CENTER);
@@ -195,14 +202,6 @@ public class CalendarView extends BorderPane implements Refreshable {
                 refresh();
             });
             grid.add(cell, col, row);
-
-            // 格子淡入动画
-            cell.setOpacity(0);
-            FadeTransition cellFade = new FadeTransition(Duration.millis(200), cell);
-            cellFade.setFromValue(0);
-            cellFade.setToValue(1);
-            cellFade.setDelay(Duration.millis((d - 1) * 15));
-            cellFade.play();
         }
     }
 
@@ -228,7 +227,7 @@ public class CalendarView extends BorderPane implements Refreshable {
         for (MoodEntry e : entries) {
             MoodMeta m = MoodMeta.of(e.mood);
             Label emoji = new Label(m.emoji);
-            emoji.setStyle("-fx-font-size: 20px;");
+            emoji.setStyle("-fx-font-size: 20px; -fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;");
             Label time = new Label(e.at == null ? "" : e.at.format(hm));
             time.setStyle(Theme.soft());
             time.setMinWidth(46);

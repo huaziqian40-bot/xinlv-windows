@@ -157,6 +157,6 @@ public class MoodDialog extends Dialog<MoodEntry> {
         }
         return "-fx-background-color: " + bg + "; -fx-background-radius: 10;"
                 + "-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + "; -fx-cursor: hand;"
-                + (selected ? "-fx-border-color: " + m.color + "; -fx-border-width: 2; -fx-border-radius: 10;" : "");
+                + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;";
     }
 }
