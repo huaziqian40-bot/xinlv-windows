@@ -5,6 +5,7 @@ package com.moodtree.client.ui;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.moodtree.client.AppContext;
+import javafx.animation.FadeTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -14,6 +15,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 public class ChatView extends VBox implements Refreshable {
 
@@ -56,6 +58,7 @@ public class ChatView extends VBox implements Refreshable {
         scroll = new ScrollPane(messages);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        ScrollSensitivity.boost(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
         messages.heightProperty().addListener((o, a, b) -> scroll.setVvalue(1.0));   // 自动滚到底
 
@@ -108,7 +111,7 @@ public class ChatView extends VBox implements Refreshable {
 
     private void showBanner(String text) {
         banner.setText(text);
-        banner.setStyle("-fx-background-color: #f0e6d2; -fx-background-radius: 8;"
+        banner.setStyle("-fx-background-color: " + Theme.inputBgColor() + "; -fx-background-radius: 8;"
                 + "-fx-padding: 10 14; -fx-font-size: 13px; -fx-text-fill: " + Theme.INK + ";");
         banner.setVisible(true);
         banner.setManaged(true);
@@ -157,7 +160,8 @@ public class ChatView extends VBox implements Refreshable {
         HBox row = new HBox(bubble);
         if ("user".equals(role)) {
             bubble.setStyle("-fx-background-color: " + Theme.ACCENT + "; -fx-text-fill: white;"
-                    + "-fx-background-radius: 14 14 4 14; -fx-font-size: 14px;");
+                    + "-fx-background-radius: 14 14 4 14; -fx-font-size: 14px;"
+                    + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 6, 0, 0, 1);");
             row.setAlignment(Pos.CENTER_RIGHT);
         } else if (crisis) {
             bubble.setStyle("-fx-background-color: #fdeaea; -fx-text-fill: #8a3b34;"
@@ -166,12 +170,19 @@ public class ChatView extends VBox implements Refreshable {
             row.setAlignment(Pos.CENTER_LEFT);
         } else {
             bubble.setStyle("-fx-background-color: " + Theme.CARD + "; -fx-text-fill: " + Theme.INK + ";"
-                    + "-fx-background-radius: 14 14 14 4; -fx-font-size: 14px;");
+                    + "-fx-background-radius: 14 14 14 4; -fx-font-size: 14px;"
+                    + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 1);");
             row.setAlignment(Pos.CENTER_LEFT);
         }
         row.setPadding(new Insets(0, 60, 0, 0));
         if ("user".equals(role)) row.setPadding(new Insets(0, 0, 0, 60));
         messages.getChildren().add(row);
+        // 新气泡淡入动画（与手机端 ChatFragment 对齐）
+        row.setOpacity(0);
+        FadeTransition ft = new FadeTransition(Duration.millis(300), row);
+        ft.setFromValue(0);
+        ft.setToValue(1);
+        ft.play();
         return bubble;
     }
 

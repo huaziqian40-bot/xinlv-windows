@@ -27,8 +27,8 @@ public class AppContext {
         // 上次缓存的心情定义（离线兜底是代码里的默认值）
         String cached = db.kvGet("moods_cache");
         if (cached != null) MoodMeta.overrideFromCatalogJson(cached);
-        // 启动时应用保存的主题
-        Theme.apply(config.themeId(), config.accent());
+        // 启动时应用保存的主题（预设 + 3 色自定义）
+        Theme.apply(config.themeId(), config.themeBg(), config.themeCard(), config.accent());
     }
 
     public boolean loggedIn() { return !config.token().isEmpty(); }
@@ -65,6 +65,17 @@ public class AppContext {
         config.setAccent(accentHex);
         config.save();
         Theme.apply(themeId, accentHex);
+        if (canEnterMain()) showMain();
+    }
+
+    /** 换主题（3 色自定义）：保存并重建 */
+    public void applyTheme(String themeId, String bgHex, String cardHex, String accentHex) {
+        config.setThemeId(themeId);
+        config.setThemeBg(bgHex);
+        config.setThemeCard(cardHex);
+        config.setAccent(accentHex);
+        config.save();
+        Theme.apply(themeId, bgHex, cardHex, accentHex);
         if (canEnterMain()) showMain();
     }
 

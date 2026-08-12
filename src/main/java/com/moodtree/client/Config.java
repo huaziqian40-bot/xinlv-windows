@@ -12,8 +12,8 @@ import java.util.Properties;
 
 public class Config {
 
-    /** 默认服务器（frp 穿透公网地址），用户可在设置里改 */
-    public static final String DEFAULT_SERVER = "http://sc1.dpfrp.top:12345";
+    /** 默认服务器（Cloudflare Tunnel 域名），用户可在设置里改 */
+    public static final String DEFAULT_SERVER = "https://xin-lv.com";
 
     private final Path dir;
     private final Path file;
@@ -61,6 +61,14 @@ public class Config {
 
     public String accent() { return props.getProperty("accent", ""); }
     public void setAccent(String hex) { props.setProperty("accent", hex == null ? "" : hex); }
+
+    /** 自定义背景色（空 = 用主题预设） */
+    public String themeBg() { return props.getProperty("themeBg", ""); }
+    public void setThemeBg(String hex) { props.setProperty("themeBg", hex == null ? "" : hex); }
+
+    /** 自定义卡片色（空 = 用主题预设） */
+    public String themeCard() { return props.getProperty("themeCard", ""); }
+    public void setThemeCard(String hex) { props.setProperty("themeCard", hex == null ? "" : hex); }
 
     /** 设备备注：登录时上报给服务端，方便用户在多台设备间区分令牌 */
     public String device() {

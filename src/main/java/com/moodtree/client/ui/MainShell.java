@@ -7,6 +7,7 @@ import com.moodtree.client.AppContext;
 import com.moodtree.client.model.MoodEntry;
 import com.moodtree.client.model.MoodMeta;
 import com.moodtree.client.sync.SyncEngine;
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
@@ -55,7 +56,7 @@ public class MainShell extends BorderPane {
         VBox sidebar = new VBox(6);
         sidebar.setPrefWidth(190);
         sidebar.setPadding(new Insets(20, 12, 20, 12));
-        sidebar.setStyle("-fx-background-color: " + Theme.SIDEBAR + ";");
+        sidebar.setStyle("-fx-background-color: " + Theme.CARD + "; -fx-background-radius: 12;");
 
         Label logo = new Label("心履");
         logo.setStyle(Theme.h2());
@@ -153,7 +154,15 @@ public class MainShell extends BorderPane {
     public void show(String key) {
         if (key.equals(currentKey)) return;
         javafx.scene.Node view = views.computeIfAbsent(key, this::buildView);
+
+        // 页面切换淡入动画（与手机端 fragment 过渡对齐）
+        view.setOpacity(0);
         content.getChildren().setAll(view);
+        FadeTransition fade = new FadeTransition(Duration.millis(200), view);
+        fade.setFromValue(0);
+        fade.setToValue(1);
+        fade.play();
+
         navButtons.keySet().forEach(k -> styleNav(k, k.equals(key)));
         currentKey = key;
         app.setLastViewKey(key);

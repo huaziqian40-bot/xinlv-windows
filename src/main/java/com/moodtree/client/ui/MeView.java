@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.moodtree.client.AppContext;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -14,7 +15,10 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 public class MeView extends VBox implements Refreshable {
 
@@ -37,6 +41,7 @@ public class MeView extends VBox implements Refreshable {
         ScrollPane scroll = new ScrollPane(body);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        ScrollSensitivity.boost(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
         getChildren().addAll(title, stateLabel, scroll);
@@ -163,51 +168,14 @@ public class MeView extends VBox implements Refreshable {
         profileBox.getChildren().addAll(streakCard, stat, badgeTitle, badges);
     }
 
-    /** 设置区：主题（预设 + 自定义强调色）/ 服务器地址 / 刷新推荐目录 */
+    /** 设置区：主题（预设 + 3 色自定义）/ 服务器地址 / 刷新推荐目录 */
     private VBox buildSettings() {
         Label h = new Label("设置");
         h.setStyle(Theme.h2());
 
-        // ---- 主题预设 ----
-        Label themeLabel = new Label("主题");
-        themeLabel.setStyle(Theme.soft());
-        HBox presetRow = new HBox(10);
-        presetRow.setAlignment(Pos.CENTER_LEFT);
-        for (String[] preset : Theme.PRESETS) {
-            String id = preset[0], name = preset[1], preview = preset[2];
-            javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(9,
-                    javafx.scene.paint.Color.web(preview));
-            dot.setStroke(javafx.scene.paint.Color.web("#00000033"));
-            Button b = new Button(name, dot);
-            boolean active = id.equals(app.config.themeId());
-            b.setStyle("-fx-background-color: " + (active ? Theme.CARD : "transparent") + ";"
-                    + "-fx-border-color: " + (active ? Theme.ACCENT : "#00000022") + ";"
-                    + "-fx-border-radius: 8; -fx-background-radius: 8;"
-                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
-                    + "-fx-text-fill: " + Theme.INK + ";");
-            b.setOnAction(e -> app.applyTheme(id, app.config.accent()));
-            presetRow.getChildren().add(b);
-        }
-
-        // ---- 自定义强调色 ----
-        Label accentLabel = new Label("强调色");
-        accentLabel.setStyle(Theme.soft());
-        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker();
-        try {
-            picker.setValue(javafx.scene.paint.Color.web(
-                    app.config.accent().isEmpty() ? Theme.ACCENT : app.config.accent()));
-        } catch (Exception ignored) { }
-        picker.setOnAction(e -> {
-            javafx.scene.paint.Color c = picker.getValue();
-            String hex = String.format("#%02x%02x%02x",
-                    (int) (c.getRed() * 255), (int) (c.getGreen() * 255), (int) (c.getBlue() * 255));
-            app.applyTheme(app.config.themeId(), hex);
-        });
-        Button resetAccent = new Button("恢复默认");
-        resetAccent.setStyle(Theme.ghostBtn() + "-fx-font-size: 12px;");
-        resetAccent.setOnAction(e -> app.applyTheme(app.config.themeId(), ""));
-        HBox accentRow = new HBox(10, picker, resetAccent);
-        accentRow.setAlignment(Pos.CENTER_LEFT);
+        // ---- 主题卡片：预设 + 3 色编辑（与手机端一致）----
+        VBox themeCard = buildThemeCard();
+        VBox.setMargin(themeCard, new Insets(6, 0, 0, 0));
 
         // ---- 服务器地址（技术细节藏在这里，登录页不显示）----
         Label serverLabel = new Label("服务器地址");
@@ -248,11 +216,196 @@ public class MeView extends VBox implements Refreshable {
         HBox catRow = new HBox(10, refreshCatalog, catState);
         catRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox box = new VBox(10, h, themeLabel, presetRow, accentLabel, accentRow,
+        VBox box = new VBox(10, h, themeCard,
                 serverLabel, serverRow, catRow);
         box.setPadding(new Insets(16));
         box.setStyle(Theme.card());
         VBox.setMargin(box, new Insets(10, 0, 0, 0));
         return box;
+    }
+
+    // ========== 主题专用卡片（3 色编辑，与手机端一致） ==========
+
+    private VBox buildThemeCard() {
+        VBox box = new VBox(10);
+        Label title = new Label("主题");
+        title.setStyle(Theme.h2());
+
+        // 预设行：4 预设按钮
+        HBox presetRow = new HBox(10);
+        presetRow.setAlignment(Pos.CENTER_LEFT);
+        String curId = app.config.themeId();
+        for (String[] preset : Theme.PRESETS) {
+            String id = preset[0], name = preset[1], preview = preset[2];
+            javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(9,
+                    javafx.scene.paint.Color.web(preview));
+            dot.setStroke(javafx.scene.paint.Color.web("#00000033"));
+            Button b = new Button(name, dot);
+            boolean active = id.equals(curId);
+            b.setStyle("-fx-background-color: " + (active ? Theme.CARD : "transparent") + ";"
+                    + "-fx-border-color: " + (active ? Theme.ACCENT : "#00000022") + ";"
+                    + "-fx-border-radius: 8; -fx-background-radius: 8;"
+                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                    + "-fx-text-fill: " + Theme.INK + ";");
+            b.setOnAction(e -> app.applyTheme(id, "", "", ""));
+            presetRow.getChildren().add(b);
+        }
+
+        box.getChildren().addAll(title, presetRow,
+                colorEditRow("🎨 背景色", app.config.themeBg(), Theme.presetBg, 3,
+                        hex -> app.applyTheme(app.config.themeId(), hex,
+                                app.config.themeCard(), app.config.accent())),
+                colorEditRow("📦 卡片色", app.config.themeCard(), Theme.presetCard, 4,
+                        hex -> app.applyTheme(app.config.themeId(), app.config.themeBg(),
+                                hex, app.config.accent())),
+                colorEditRow("🔘 强调色", app.config.accent(), Theme.presetAccent, 5,
+                        hex -> app.applyTheme(app.config.themeId(), app.config.themeBg(),
+                                app.config.themeCard(), hex)));
+        return box;
+    }
+
+    /** 一行颜色编辑区：标签 + 4 色板 + 加号按钮（打开取色器）+ 恢复预设 */
+    private VBox colorEditRow(String label, String curHex, String presetHex, int presetIdx,
+                              java.util.function.Consumer<String> onApply) {
+        VBox row = new VBox(6);
+
+        // 标签行：当前色预览圆点 + 名称 + HEX
+        HBox header = new HBox(8);
+        header.setAlignment(Pos.CENTER_LEFT);
+        String hex = (curHex != null && !curHex.isEmpty()) ? curHex : presetHex;
+        javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(8,
+                safeColor(hex));
+        dot.setStroke(javafx.scene.paint.Color.web("#00000033"));
+        Label tv = new Label(label + "  " + hex);
+        tv.setStyle("-fx-text-fill: " + Theme.INK + "; -fx-font-size: 13px;");
+        header.getChildren().addAll(dot, tv);
+
+        // 色板：4 候选色 + 加号
+        HBox swatches = new HBox(6);
+        swatches.setAlignment(Pos.CENTER_LEFT);
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(presetHex);
+        for (String[] p : Theme.PRESETS) {
+            String hex2 = p[presetIdx];
+            if (!hex2.equals(presetHex)) candidates.add(hex2);
+        }
+        for (int i = 0; i < 4 && i < candidates.size(); i++) {
+            String hex2 = candidates.get(i);
+            Button sw = new Button();
+            sw.setStyle("-fx-background-color: " + hex2 + "; -fx-min-width: 44; -fx-min-height: 34;"
+                    + "-fx-background-radius: 8; -fx-cursor: hand;"
+                    + "-fx-border-color: " + (hex.equalsIgnoreCase(hex2) ? Theme.INK : "#00000022") + ";"
+                    + "-fx-border-radius: 8;");
+            sw.setOnAction(e -> onApply.accept(hex2));
+            swatches.getChildren().add(sw);
+        }
+        Button plus = new Button("＋");
+        plus.setStyle("-fx-background-color: " + blendTransparent() + "; -fx-min-width: 44; -fx-min-height: 34;"
+                + "-fx-background-radius: 8; -fx-border-color: #00000022; -fx-border-radius: 8;"
+                + "-fx-text-fill: " + Theme.ACCENT + "; -fx-font-size: 18px; -fx-cursor: hand;");
+        plus.setOnAction(e -> showColorPicker(label, curHex, presetHex, onApply));
+        swatches.getChildren().add(plus);
+
+        Button resetBtn = new Button("恢复预设");
+        resetBtn.setStyle(Theme.ghostBtn() + "-fx-font-size: 12px;");
+        resetBtn.setOnAction(e -> onApply.accept(""));
+
+        row.getChildren().addAll(header, swatches, resetBtn);
+        return row;
+    }
+
+    /** 打开取色器弹窗（用 Stage + 文本输入代替 ColorPicker，避免 ColorPicker 弹出面板在场景重建后残留） */
+    private void showColorPicker(String label, String curHex, String presetHex,
+                                 java.util.function.Consumer<String> onApply) {
+        String initial = (curHex != null && !curHex.isEmpty()) ? curHex : presetHex;
+
+        Stage pickerStage = new Stage();
+        pickerStage.initModality(Modality.APPLICATION_MODAL);
+        pickerStage.setTitle("选择" + label);
+        if (getScene() != null && getScene().getWindow() != null)
+            pickerStage.initOwner(getScene().getWindow());
+
+        // HEX 输入框
+        TextField hexInput = new TextField(initial);
+        hexInput.setStyle(Theme.input());
+        hexInput.setMaxWidth(180);
+        Label hexLabel = new Label("HEX 色值");
+        hexLabel.setStyle(Theme.soft());
+
+        // 颜色预览方块
+        Region preview = new Region();
+        preview.setPrefSize(48, 48);
+        preview.setStyle("-fx-background-color: " + initial + "; -fx-background-radius: 8;"
+                + "-fx-border-color: #00000022; -fx-border-radius: 8;");
+        hexInput.textProperty().addListener((obs, old, val) -> {
+            String v = val.startsWith("#") ? val : "#" + val;
+            try {
+                javafx.scene.paint.Color.web(v);
+                preview.setStyle("-fx-background-color: " + v + "; -fx-background-radius: 8;"
+                        + "-fx-border-color: #00000022; -fx-border-radius: 8;");
+            } catch (Exception ignored) { }
+        });
+
+        // 常用色板
+        String[] commonColors = {
+                "#d2893f", "#e8a87c", "#f5cba7", "#fdf2e9",
+                "#7d8fb3", "#a8b5d4", "#c5d0e8", "#e8edf5",
+                "#5ea07c", "#85c4a0", "#b5ddc5", "#ddf0e5",
+                "#d18a9a", "#e8b0bf", "#f2ccd6", "#fae8ed",
+                "#e74c3c", "#f39c12", "#2ecc71", "#3498db",
+                "#9b59b6", "#1abc9c", "#e67e22", "#34495e"
+        };
+        FlowPane swatches = new FlowPane(6, 6);
+        Label swatchLabel = new Label("快速选择");
+        swatchLabel.setStyle(Theme.soft());
+        for (String hex : commonColors) {
+            Button sw = new Button();
+            sw.setStyle("-fx-background-color: " + hex + "; -fx-min-width: 36; -fx-min-height: 28;"
+                    + "-fx-background-radius: 6; -fx-cursor: hand;"
+                    + "-fx-border-color: #00000022; -fx-border-radius: 6;");
+            sw.setOnAction(e -> hexInput.setText(hex));
+            swatches.getChildren().add(sw);
+        }
+
+        // 确定 / 取消
+        Button ok = new Button("确定");
+        ok.setStyle(Theme.primaryBtn());
+        Button cancel = new Button("取消");
+        cancel.setStyle(Theme.ghostBtn());
+        HBox buttons = new HBox(10, ok, cancel);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox content = new VBox(14,
+                new HBox(16, preview, new VBox(6, hexLabel, hexInput)),
+                swatchLabel, swatches, buttons);
+        content.setPadding(new Insets(16));
+        content.setStyle("-fx-background-color: " + Theme.CARD + ";");
+
+        pickerStage.setScene(new javafx.scene.Scene(content));
+
+        ok.setOnAction(e -> {
+            String raw = hexInput.getText().trim();
+            if (!raw.startsWith("#")) raw = "#" + raw;
+            final String val = raw;
+            try {
+                javafx.scene.paint.Color.web(val);
+                pickerStage.close();
+                Platform.runLater(() -> onApply.accept(val));
+            } catch (Exception ex) {
+                hexInput.setStyle(Theme.input() + "-fx-border-color: #c9706a;");
+            }
+        });
+        cancel.setOnAction(e -> pickerStage.close());
+
+        pickerStage.show();
+    }
+
+    private static javafx.scene.paint.Color safeColor(String hex) {
+        try { return javafx.scene.paint.Color.web(hex); } catch (Exception e) { return javafx.scene.paint.Color.GRAY; }
+    }
+
+    private static String blendTransparent() {
+        // 半透明黑（加号底）
+        return "rgba(0,0,0,0.04)";
     }
 }

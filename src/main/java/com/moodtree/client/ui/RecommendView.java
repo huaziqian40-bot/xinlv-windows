@@ -9,12 +9,17 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.moodtree.client.AppContext;
 import com.moodtree.client.model.MoodMeta;
+import javafx.animation.FadeTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -22,6 +27,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +39,7 @@ public class RecommendView extends VBox implements Refreshable {
     private final FlowPane moodBar = new FlowPane(8, 8);
     private final VBox resultBox = new VBox(14);
     private final Label stateLabel = new Label("选一个心情，给你一些陪伴");
+    private final ToggleGroup moodGroup = new ToggleGroup();
     private String selectedMood;
     private MediaPlayer player;          // 同时只放一首
     private Button playingBtn;
@@ -47,10 +54,39 @@ public class RecommendView extends VBox implements Refreshable {
         title.setStyle(Theme.h1());
 
         for (MoodMeta m : MoodMeta.all()) {
-            Button chip = new Button(m.emoji + " " + m.label);
-            chip.setStyle("-fx-background-color: " + m.color + "; -fx-background-radius: 20;"
+            ToggleButton chip = new ToggleButton(m.emoji + " " + m.label);
+            chip.setUserData(m.key);
+            chip.setToggleGroup(moodGroup);
+            chip.setStyle("-fx-background-radius: 20;"
                     + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;");
-            chip.setOnAction(e -> select(m.key));
+            // 选中态/未选中态样式
+            boolean isDark = Theme.isDarkTheme();
+            String color = m.color;
+            String unselected, selected, textColor;
+            if (isDark) {
+                unselected = Theme.darken(color, 0.75f);
+                selected = Theme.darken(color, 0.50f);
+                textColor = "#f0ece4";
+            } else {
+                unselected = Theme.lighten(color, 0.85f);
+                selected = Theme.lighten(color, 0.60f);
+                textColor = Theme.INK;
+            }
+            chip.selectedProperty().addListener((obs, old, sel) -> {
+                chip.setStyle("-fx-background-radius: 20;"
+                        + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                        + "-fx-background-color: " + (sel ? selected : unselected) + ";"
+                        + "-fx-text-fill: " + (sel ? color : textColor) + ";");
+            });
+            // 初始样式
+            chip.setStyle("-fx-background-color: " + unselected + ";"
+                    + "-fx-background-radius: 20;"
+                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
+                    + "-fx-text-fill: " + textColor + ";");
+            chip.setOnAction(e -> {
+                if (chip.isSelected()) select(m.key);
+                else moodGroup.selectToggle(null);
+            });
             moodBar.getChildren().add(chip);
         }
 
@@ -61,6 +97,7 @@ public class RecommendView extends VBox implements Refreshable {
         ScrollPane scroll = new ScrollPane(body);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        ScrollSensitivity.boost(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
         getChildren().addAll(title, moodBar, scroll);
@@ -143,9 +180,9 @@ public class RecommendView extends VBox implements Refreshable {
         boolean offline = rec.has("offline") && rec.get("offline").getAsBoolean();
         resultBox.getChildren().clear();
 
-        JsonArray songs = rec.getAsJsonArray("songs");
-        JsonArray acts = rec.getAsJsonArray("activities");
-        JsonArray tips = rec.getAsJsonArray("tips");
+        JsonArray songs = rec.has("songs") ? rec.getAsJsonArray("songs") : null;
+        JsonArray acts = rec.has("activities") ? rec.getAsJsonArray("activities") : null;
+        JsonArray tips = rec.has("tips") ? rec.getAsJsonArray("tips") : null;
         boolean hasVideo = rec.has("video") && rec.get("video").isJsonObject();
         boolean any = (songs != null && songs.size() > 0) || (acts != null && acts.size() > 0)
                 || (tips != null && tips.size() > 0) || hasVideo;
@@ -156,6 +193,8 @@ public class RecommendView extends VBox implements Refreshable {
             return;
         }
         stateLabel.setText("给「" + m.label + "」的你" + (offline ? "（离线缓存内容）" : ""));
+
+        int delay = 0;
 
         // ---- 音乐 ----
         if (songs != null && songs.size() > 0) {
@@ -180,6 +219,7 @@ public class RecommendView extends VBox implements Refreshable {
                 songCard.getChildren().add(row);
             }
             resultBox.getChildren().add(songCard);
+            animateIn(songCard, delay++);
         }
 
         // ---- 小行动 ----
@@ -192,6 +232,7 @@ public class RecommendView extends VBox implements Refreshable {
                 actCard.getChildren().add(t);
             }
             resultBox.getChildren().add(actCard);
+            animateIn(actCard, delay++);
         }
 
         // ---- 心理小知识 ----
@@ -212,6 +253,7 @@ public class RecommendView extends VBox implements Refreshable {
                 }
             }
             resultBox.getChildren().add(tipCard);
+            animateIn(tipCard, delay++);
         }
 
         // ---- 视频 ----
@@ -223,6 +265,7 @@ public class RecommendView extends VBox implements Refreshable {
             link.setOnAction(e -> openBrowser(v.get("url").getAsString()));
             videoCard.getChildren().add(link);
             resultBox.getChildren().add(videoCard);
+            animateIn(videoCard, delay++);
         }
 
         Region pad = new Region();
@@ -230,12 +273,28 @@ public class RecommendView extends VBox implements Refreshable {
         resultBox.getChildren().add(pad);
     }
 
+    /** 卡片淡入动画（带递增延迟，依次弹出）—— 与手机端 RecommendFragment.animateIn 对齐 */
+    private void animateIn(javafx.scene.Node v, int delay) {
+        v.setOpacity(0);
+        v.setTranslateY(20);
+        FadeTransition ft = new FadeTransition(Duration.millis(300), v);
+        ft.setFromValue(0);
+        ft.setToValue(1);
+        ft.setDelay(Duration.millis(delay * 120));
+        TranslateTransition tt = new TranslateTransition(Duration.millis(300), v);
+        tt.setFromY(20);
+        tt.setToY(0);
+        tt.setDelay(Duration.millis(delay * 120));
+        ft.play();
+        tt.play();
+    }
+
     private VBox card(String title) {
         Label h = new Label(title);
         h.setStyle(Theme.h2());
         VBox box = new VBox(8, h);
         box.setPadding(new Insets(16));
-        box.setStyle(Theme.card());
+        box.setStyle(Theme.cardBg());
         return box;
     }
 

@@ -6,6 +6,7 @@ package com.moodtree.client.ui;
 import com.moodtree.client.AppContext;
 import com.moodtree.client.model.MoodEntry;
 import com.moodtree.client.model.MoodMeta;
+import javafx.animation.FadeTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -19,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -83,7 +85,7 @@ public class CalendarView extends BorderPane implements Refreshable {
         detailList = new VBox(8);
         VBox detail = new VBox(10, detailTitle, detailList);
         detail.setPadding(new Insets(16));
-        detail.setStyle(Theme.card());
+        detail.setStyle(Theme.cardBg());
         setBottom(detail);
 
         refresh();
@@ -193,6 +195,14 @@ public class CalendarView extends BorderPane implements Refreshable {
                 refresh();
             });
             grid.add(cell, col, row);
+
+            // 格子淡入动画
+            cell.setOpacity(0);
+            FadeTransition cellFade = new FadeTransition(Duration.millis(200), cell);
+            cellFade.setFromValue(0);
+            cellFade.setToValue(1);
+            cellFade.setDelay(Duration.millis((d - 1) * 15));
+            cellFade.play();
         }
     }
 
@@ -251,6 +261,14 @@ public class CalendarView extends BorderPane implements Refreshable {
             // 点击行进入编辑（删除按钮除外，按钮事件不会被行点击抢走）
             row.setOnMouseClicked(ev -> openMoodDialog(e));
             detailList.getChildren().add(row);
+
+            // 记录行淡入动画
+            row.setOpacity(0);
+            FadeTransition rowFade = new FadeTransition(Duration.millis(250), row);
+            rowFade.setFromValue(0);
+            rowFade.setToValue(1);
+            rowFade.setDelay(Duration.millis(detailList.getChildren().size() * 40));
+            rowFade.play();
         }
     }
 

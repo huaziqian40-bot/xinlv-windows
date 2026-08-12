@@ -3,6 +3,7 @@ package com.moodtree.client.ui;
 
 import com.moodtree.client.model.MoodEntry;
 import com.moodtree.client.model.MoodMeta;
+import javafx.animation.ScaleTransition;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -16,6 +17,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 import java.time.LocalDate;
 
@@ -40,14 +42,12 @@ public class MoodDialog extends Dialog<MoodEntry> {
             tile.setUserData(m.key);
             tile.setToggleGroup(group);
             tile.setPrefSize(104, 44);
-            tile.setStyle("-fx-background-color: " + m.color + "; -fx-background-radius: 10;"
-                    + "-fx-font-size: 14px; -fx-text-fill: #3d3a34; -fx-cursor: hand;");
-            // 选中态：深色描边
+            tile.setStyle(moodTileStyle(m, false));
+            // 选中态：深色描边 + 稍饱和底色（与手机端 chip 选中态对齐）
+            int idx = i;
             group.selectedToggleProperty().addListener((obs, old, now) -> {
                 boolean sel = now != null && m.key.equals(now.getUserData());
-                tile.setStyle("-fx-background-color: " + m.color + "; -fx-background-radius: 10;"
-                        + "-fx-font-size: 14px; -fx-text-fill: #3d3a34; -fx-cursor: hand;"
-                        + (sel ? "-fx-border-color: #3d3a34; -fx-border-width: 2; -fx-border-radius: 10;" : ""));
+                tile.setStyle(moodTileStyle(m, sel));
             });
             if (editing != null && m.key.equals(editing.mood)) tile.setSelected(true);
             grid.add(tile, i % 5, i / 5);
@@ -108,6 +108,17 @@ public class MoodDialog extends Dialog<MoodEntry> {
         getDialogPane().setContent(body);
         getDialogPane().setStyle(Theme.page());
 
+        // 弹窗缩放淡入动画（与手机端 MoodDialogFragment scale_in 对齐）
+        setOnShowing(d -> {
+            javafx.scene.Node content = getDialogPane().getContent();
+            ScaleTransition st = new ScaleTransition(Duration.millis(250), content);
+            st.setFromX(0.85);
+            st.setFromY(0.85);
+            st.setToX(1.0);
+            st.setToY(1.0);
+            st.play();
+        });
+
         setResultConverter(bt -> {
             if (bt != ButtonType.OK || group.getSelectedToggle() == null) return null;
             String mood = (String) group.getSelectedToggle().getUserData();
@@ -137,5 +148,15 @@ public class MoodDialog extends Dialog<MoodEntry> {
         else if (pct <= 45) return 2;
         else if (pct <= 70) return 3;
         else return 4;
+    }
+
+    private static String moodTileStyle(MoodMeta m, boolean selected) {
+        String bg = Theme.lighten(m.color, 0.60f);
+        if (selected) {
+            bg = Theme.lighten(m.color, 0.35f);
+        }
+        return "-fx-background-color: " + bg + "; -fx-background-radius: 10;"
+                + "-fx-font-size: 14px; -fx-text-fill: " + Theme.INK + "; -fx-cursor: hand;"
+                + (selected ? "-fx-border-color: " + m.color + "; -fx-border-width: 2; -fx-border-radius: 10;" : "");
     }
 }
