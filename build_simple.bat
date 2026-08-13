@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d D:\moodsite\windows
 if exist target\pkg-lib rmdir /s /q target\pkg-lib
 mkdir target\pkg-lib
-copy /y target\moodtree-client-1.0.4.jar target\pkg-lib\
+copy /y target\moodtree-client-1.0.5.jar target\pkg-lib\
 copy /y target\lib\javafx-*-win.jar target\pkg-lib\
 copy /y target\lib\gson-*.jar target\pkg-lib\
 copy /y target\lib\sqlite-jdbc-*.jar target\pkg-lib\
@@ -16,7 +16,7 @@ echo --- jpackage app-image ---
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.4 ^
+  --app-version 1.0.5 ^
   --vendor XinLv ^
   --icon src\main\resources\logo.ico ^
   --dest target\dist
@@ -29,7 +29,7 @@ echo --- jpackage exe installer ---
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.4 ^
+  --app-version 1.0.5 ^
   --vendor XinLv ^
   --description "XinLv desktop client" ^
   --icon src\main\resources\logo.ico ^
