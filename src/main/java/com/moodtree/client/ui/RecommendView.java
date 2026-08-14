@@ -1,6 +1,7 @@
 /* 推荐页：选心情 → 音乐/小行动/心理小知识/视频。
  * 在线时调 /api/v1/recommend/（与网页版同一套推荐逻辑）；
- * 离线时用本地目录缓存（登录时同步下来的）自行筛选，音乐仅在线可播。 */
+ * 离线时用本地目录缓存（登录时同步下来的）自行筛选，音乐仅在线可播。
+ * 卡片带淡入+上移动画，chip 颜色与安卓端一致（浅底浅色、深底深色）。 */
 package com.moodtree.client.ui;
 
 import com.google.gson.JsonArray;
@@ -20,6 +21,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -54,13 +56,15 @@ public class RecommendView extends VBox implements Refreshable {
         title.setStyle(Theme.h1());
 
         for (MoodMeta m : MoodMeta.all()) {
-            ToggleButton chip = new ToggleButton(m.emoji + " " + m.label);
+            ToggleButton chip = new ToggleButton();
+            HBox chipContent = new HBox(6, EmojiUtil.emoji(18, m.emoji), new Label(m.label));
+            chipContent.setAlignment(Pos.CENTER);
+            chip.setGraphic(chipContent);
             chip.setUserData(m.key);
             chip.setToggleGroup(moodGroup);
             chip.setStyle("-fx-background-radius: 20;"
-                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
-                    + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;");
-            // 选中态/未选中态样式
+                    + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;");
+            // 选中态/未选中态样式（与安卓端一致：浅底浅色、深底深色）
             boolean isDark = Theme.isDarkTheme();
             String color = m.color;
             String unselected, selected, textColor;
@@ -76,7 +80,6 @@ public class RecommendView extends VBox implements Refreshable {
             chip.selectedProperty().addListener((obs, old, sel) -> {
                 chip.setStyle("-fx-background-radius: 20;"
                         + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
-                        + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;"
                         + "-fx-background-color: " + (sel ? selected : unselected) + ";"
                         + "-fx-text-fill: " + (sel ? color : textColor) + ";");
             });
@@ -84,7 +87,6 @@ public class RecommendView extends VBox implements Refreshable {
             chip.setStyle("-fx-background-color: " + unselected + ";"
                     + "-fx-background-radius: 20;"
                     + "-fx-padding: 6 14; -fx-font-size: 13px; -fx-cursor: hand;"
-                    + "-fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;"
                     + "-fx-text-fill: " + textColor + ";");
             chip.setOnAction(e -> {
                 if (chip.isSelected()) select(m.key);
@@ -99,11 +101,27 @@ public class RecommendView extends VBox implements Refreshable {
         VBox body = new VBox(12, stateLabel, resultBox);
         ScrollPane scroll = new ScrollPane(body);
         scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        Theme.transparentScrollPane(scroll);
         ScrollSensitivity.boost(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
         getChildren().addAll(title, moodBar, scroll);
+        // 入场动画：标题、心情条、滚动区依次淡入
+        animateIn(title, 0);
+        animateIn(moodBar, 1);
+        animateIn(scroll, 2);
+    }
+
+    /** 外部调用：选中某心情并加载推荐（用于记心情后自动跳转） */
+    public void showMood(String mood) {
+        for (javafx.scene.Node n : moodBar.getChildren()) {
+            if (n instanceof ToggleButton tb && mood.equals(tb.getUserData())) {
+                moodGroup.selectToggle(tb);
+                tb.setSelected(true);
+                select(mood);
+                return;
+            }
+        }
     }
 
     private void select(String mood) {
@@ -268,7 +286,6 @@ public class RecommendView extends VBox implements Refreshable {
             link.setOnAction(e -> openBrowser(v.get("url").getAsString()));
             videoCard.getChildren().add(link);
             resultBox.getChildren().add(videoCard);
-            animateIn(videoCard, delay++);
         }
 
         Region pad = new Region();

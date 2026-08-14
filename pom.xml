@@ -9,7 +9,7 @@
 
     <groupId>com.moodtree</groupId>
     <artifactId>moodtree-client</artifactId>
-    <version>1.0.5</version>
+    <version>1.1.1</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -29,6 +29,18 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-media</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <!-- 彩色 Emoji 渲染（AWT ↔ JavaFX） -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <!-- 本地 HTML 小游戏 -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
             <version>${javafx.version}</version>
         </dependency>
         <!-- JSON 解析（接口请求/响应） -->

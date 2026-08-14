@@ -2,7 +2,7 @@
 REM ===== XinLv client - one-click packaging =====
 REM Output:
 REM   1) portable: target\dist\XinLv\  (copy the folder anywhere, run XinLv.exe)
-REM   2) installer: target\dist\XinLv-1.0.0.exe  (needs WiX, already on PATH below)
+REM   2) installer: target\dist\XinLv-1.1.1.exe  (needs WiX, already on PATH below)
 chcp 65001 >nul
 cd /d %~dp0
 
@@ -19,7 +19,7 @@ if errorlevel 1 (echo BUILD FAILED & pause & exit /b 1)
 echo [2/3] staging module path (windows javafx jars only)...
 if exist target\pkg-lib rmdir /s /q target\pkg-lib
 mkdir target\pkg-lib
-copy /y target\moodtree-client-1.0.5.jar target\pkg-lib\ >nul
+copy /y target\moodtree-client-1.1.1.jar target\pkg-lib\ >nul
 copy /y target\lib\javafx-*-win.jar target\pkg-lib\ >nul
 copy /y target\lib\gson-*.jar target\pkg-lib\ >nul
 copy /y target\lib\sqlite-jdbc-*.jar target\pkg-lib\ >nul
@@ -33,7 +33,7 @@ echo [3/3] jpackage app-image (portable)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.5 ^
+  --app-version 1.1.1 ^
   --vendor XinLv ^
   --icon src\main\resources\logo.ico ^
   --dest target\dist
@@ -46,7 +46,7 @@ echo building exe installer (WiX)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.0.5 ^
+  --app-version 1.1.1 ^
   --vendor XinLv ^
   --description "XinLv desktop client" ^
   --icon src\main\resources\logo.ico ^
@@ -58,5 +58,5 @@ if errorlevel 1 (echo INSTALLER FAILED (portable is fine) & pause & exit /b 1)
 echo.
 echo ALL DONE:
 echo   portable  target\dist\XinLv\
-echo   installer target\dist\XinLv-1.0.0.exe
+echo   installer target\dist\XinLv-1.1.1.exe
 pause

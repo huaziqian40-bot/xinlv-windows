@@ -1,10 +1,13 @@
-/* 我的页面：连胜、徽章墙、总记录数（在线拉 /api/v1/profile/，离线用缓存）+ 设置区。 */
+/* 我的页面：头像 + 用户名、连胜、徽章墙、总记录数（在线拉 /api/v1/profile/，离线用缓存）+ 设置区。
+ * 头像从 profile.avatar_url 加载，无头像时显示用户名首字圆形底。 */
 package com.moodtree.client.ui;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.moodtree.client.AppContext;
+import javafx.animation.FadeTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -12,13 +15,18 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.util.Duration;
 
 public class MeView extends VBox implements Refreshable {
 
@@ -40,7 +48,7 @@ public class MeView extends VBox implements Refreshable {
         VBox body = new VBox(14, profileBox, buildSettings());
         ScrollPane scroll = new ScrollPane(body);
         scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        Theme.transparentScrollPane(scroll);
         ScrollSensitivity.boost(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
@@ -87,8 +95,7 @@ public class MeView extends VBox implements Refreshable {
             }
         } catch (Exception ignored) { }
 
-        Label fire = new Label("🔥");
-        fire.setStyle("-fx-font-size: 40px;");
+        ImageView fire = EmojiUtil.emoji(40, "🔥");
         Label days = new Label(streak + " 天");
         days.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: " + Theme.INK + ";");
         Label cap = new Label("连续记录 · 共 " + total + " 条（本机）");
@@ -109,6 +116,8 @@ public class MeView extends VBox implements Refreshable {
         guestCard.setStyle(Theme.card());
 
         profileBox.getChildren().addAll(streakCard, guestCard);
+        animateIn(streakCard, 0);
+        animateIn(guestCard, 1);
     }
 
     private void render(JsonObject p) {
@@ -119,10 +128,14 @@ public class MeView extends VBox implements Refreshable {
         }
         stateLabel.setText("");
 
+        // ---- 头像 + 用户名卡片 ----
+        javafx.scene.Node header = buildProfileHeader(p);
+        profileBox.getChildren().add(header);
+        animateIn(header, 0);
+
         // ---- 连胜卡 ----
         int streak = p.has("streak") ? p.get("streak").getAsInt() : 0;
-        Label fire = new Label("🔥");
-        fire.setStyle("-fx-font-size: 40px;");
+        ImageView fire = EmojiUtil.emoji(40, "🔥");
         Label days = new Label(streak + " 天");
         days.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: " + Theme.INK + ";");
         Label cap = new Label("连续记录");
@@ -131,6 +144,8 @@ public class MeView extends VBox implements Refreshable {
         streakCard.setAlignment(Pos.CENTER_LEFT);
         streakCard.setPadding(new Insets(20));
         streakCard.setStyle(Theme.card());
+        profileBox.getChildren().add(streakCard);
+        animateIn(streakCard, 1);
 
         // ---- 统计 ----
         int total = p.has("total_entries") ? p.get("total_entries").getAsInt() : 0;
@@ -138,6 +153,8 @@ public class MeView extends VBox implements Refreshable {
                 ? p.get("date_joined").getAsString().substring(0, 10) : "";
         Label stat = new Label("共记录 " + total + " 条心情" + (joined.isEmpty() ? "" : " · " + joined + " 加入"));
         stat.setStyle(Theme.soft());
+        profileBox.getChildren().add(stat);
+        animateIn(stat, 2);
 
         // ---- 徽章墙 ----
         Label badgeTitle = new Label("徽章墙");
@@ -146,8 +163,7 @@ public class MeView extends VBox implements Refreshable {
         if (p.has("badges")) {
             for (JsonElement el : p.getAsJsonArray("badges")) {
                 JsonObject b = el.getAsJsonObject();
-                Label emoji = new Label(b.get("emoji").getAsString());
-                emoji.setStyle("-fx-font-size: 28px; -fx-font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;");
+                ImageView emoji = EmojiUtil.emoji(28, b.get("emoji").getAsString());
                 Label name = new Label(b.get("name").getAsString());
                 name.setStyle("-fx-font-size: 13px; -fx-text-fill: " + Theme.INK + ";");
                 Label need = new Label("连续 " + b.get("days").getAsInt() + " 天");
@@ -164,8 +180,103 @@ public class MeView extends VBox implements Refreshable {
             none.setStyle(Theme.soft());
             badges.getChildren().add(none);
         }
+        profileBox.getChildren().add(badgeTitle);
+        profileBox.getChildren().add(badges);
+        animateIn(badgeTitle, 3);
+        animateIn(badges, 4);
+    }
 
-        profileBox.getChildren().addAll(streakCard, stat, badgeTitle, badges);
+    /** 淡入 + 上移动画（与手机端一致，index 控制依次延迟） */
+    private void animateIn(javafx.scene.Node v, int index) {
+        v.setOpacity(0);
+        v.setTranslateY(18);
+        FadeTransition ft = new FadeTransition(Duration.millis(350), v);
+        ft.setFromValue(0);
+        ft.setToValue(1);
+        ft.setDelay(Duration.millis(index * 120));
+        TranslateTransition tt = new TranslateTransition(Duration.millis(350), v);
+        tt.setFromY(18);
+        tt.setToY(0);
+        tt.setDelay(Duration.millis(index * 120));
+        ft.play();
+        tt.play();
+    }
+
+    /** 头像 + 用户名卡片：头像从 profile.avatar_url 加载，无头像时显示用户名首字圆形底 */
+    private VBox buildProfileHeader(JsonObject p) {
+        String username = p.has("username") ? p.get("username").getAsString() : "用户";
+        String bio = p.has("bio") && !p.get("bio").isJsonNull()
+                ? p.get("bio").getAsString() : "";
+        String avatarUrl = p.has("avatar_url") && !p.get("avatar_url").isJsonNull()
+                ? p.get("avatar_url").getAsString() : "";
+
+        // 头像：圆形裁剪
+        int size = 56;
+        StackPane avatarWrap = new StackPane();
+        avatarWrap.setPrefSize(size, size);
+        avatarWrap.setMinSize(size, size);
+        avatarWrap.setMaxSize(size, size);
+
+        Circle clip = new Circle(size / 2.0, size / 2.0, size / 2.0);
+        avatarWrap.setClip(clip);
+
+        Region avatarBg = new Region();
+        avatarBg.setStyle("-fx-background-color: " + Theme.CARD + ";");
+        avatarBg.setPrefSize(size, size);
+        avatarWrap.getChildren().add(avatarBg);
+
+        if (avatarUrl != null && !avatarUrl.isEmpty()) {
+            // 后台加载头像，避免阻塞 UI
+            Bg.run(() -> {
+                        try {
+                            return new Image(avatarUrl, size, size, true, true, true);
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    },
+                    img -> {
+                        if (img != null && !img.isError()) {
+                            ImageView iv = new ImageView(img);
+                            iv.setFitWidth(size);
+                            iv.setFitHeight(size);
+                            iv.setPreserveRatio(true);
+                            avatarWrap.getChildren().add(iv);
+                        } else {
+                            avatarWrap.getChildren().add(initialAvatar(username, size));
+                        }
+                    },
+                    err -> avatarWrap.getChildren().add(initialAvatar(username, size)));
+        } else {
+            avatarWrap.getChildren().add(initialAvatar(username, size));
+        }
+
+        // 用户名 + 签名
+        Label nameLabel = new Label(username);
+        nameLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + Theme.INK + ";");
+        VBox col = new VBox(4);
+        col.setAlignment(Pos.CENTER_LEFT);
+        col.getChildren().add(nameLabel);
+        if (!bio.isEmpty()) {
+            Label bioLabel = new Label(bio);
+            bioLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: " + Theme.INK_SOFT + ";");
+            col.getChildren().add(bioLabel);
+        }
+
+        HBox card = new HBox(16, avatarWrap, col);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.setPadding(new Insets(20));
+        card.setStyle(Theme.card());
+        return new VBox(card);
+    }
+
+    /** 无头像时：用户名首字 + 强调色圆形底 */
+    private Label initialAvatar(String username, int size) {
+        Label initial = new Label(username.isEmpty() ? "?" : username.substring(0, 1).toUpperCase());
+        initial.setStyle("-fx-background-color: " + Theme.ACCENT + "; -fx-text-fill: white;"
+                + "-fx-background-radius: " + (size / 2.0) + ";"
+                + "-fx-font-size: " + (size * 0.45) + "px; -fx-font-weight: bold;"
+                + "-fx-alignment: center; -fx-min-width: " + size + "; -fx-min-height: " + size + ";");
+        return initial;
     }
 
     /** 设置区：主题（预设 + 3 色自定义）/ 服务器地址 / 刷新推荐目录 */
@@ -319,8 +430,8 @@ public class MeView extends VBox implements Refreshable {
                                  java.util.function.Consumer<String> onApply) {
         String initial = (curHex != null && !curHex.isEmpty()) ? curHex : presetHex;
 
-        Stage pickerStage = new Stage();
-        pickerStage.initModality(Modality.APPLICATION_MODAL);
+        javafx.stage.Stage pickerStage = new javafx.stage.Stage();
+        pickerStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
         pickerStage.setTitle("选择" + label);
         if (getScene() != null && getScene().getWindow() != null)
             pickerStage.initOwner(getScene().getWindow());

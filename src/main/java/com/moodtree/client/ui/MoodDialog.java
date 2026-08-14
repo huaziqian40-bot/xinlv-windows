@@ -38,7 +38,10 @@ public class MoodDialog extends Dialog<MoodEntry> {
         grid.setVgap(8);
         int i = 0;
         for (MoodMeta m : MoodMeta.all()) {
-            ToggleButton tile = new ToggleButton(m.emoji + " " + m.label);
+            ToggleButton tile = new ToggleButton();
+            HBox tileContent = new HBox(6, EmojiUtil.emoji(22, m.emoji), new Label(m.label));
+            tileContent.setAlignment(Pos.CENTER);
+            tile.setGraphic(tileContent);
             tile.setUserData(m.key);
             tile.setToggleGroup(group);
             tile.setPrefSize(104, 44);
