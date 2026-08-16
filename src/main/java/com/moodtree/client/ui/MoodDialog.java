@@ -1,6 +1,7 @@
 /* 记心情弹窗：10 个心情色块 + 强度无极滑动条 + 备注。新建和编辑共用（编辑传入已有记录）。 */
 package com.moodtree.client.ui;
 
+import com.moodtree.client.Config;
 import com.moodtree.client.model.MoodEntry;
 import com.moodtree.client.model.MoodMeta;
 import javafx.animation.ScaleTransition;
@@ -39,7 +40,7 @@ public class MoodDialog extends Dialog<MoodEntry> {
         int i = 0;
         for (MoodMeta m : MoodMeta.all()) {
             ToggleButton tile = new ToggleButton();
-            HBox tileContent = new HBox(6, EmojiUtil.emoji(22, m.emoji), new Label(m.label));
+            HBox tileContent = new HBox(6, ImageLoader.load(22, new Config().serverBase() + "/static/" + m.image, m.emoji), new Label(m.label));
             tileContent.setAlignment(Pos.CENTER);
             tile.setGraphic(tileContent);
             tile.setUserData(m.key);
