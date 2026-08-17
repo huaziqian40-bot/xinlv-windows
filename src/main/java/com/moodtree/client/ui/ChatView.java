@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.moodtree.client.AppContext;
 import javafx.animation.FadeTransition;
+import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -73,7 +74,27 @@ public class ChatView extends VBox implements Refreshable {
         inputRow.setAlignment(Pos.CENTER);
 
         getChildren().addAll(top, banner, scroll, inputRow);
+        // 页面入场动画：标题、消息区、输入区依次淡入
+        animateIn(top, 0);
+        animateIn(scroll, 1);
+        animateIn(inputRow, 2);
         refresh();
+    }
+
+    /** 淡入 + 上移动画（index 控制依次延迟） */
+    private void animateIn(javafx.scene.Node v, int index) {
+        v.setOpacity(0);
+        v.setTranslateY(16);
+        FadeTransition ft = new FadeTransition(Duration.millis(350), v);
+        ft.setFromValue(0);
+        ft.setToValue(1);
+        ft.setDelay(Duration.millis(index * 120));
+        TranslateTransition tt = new TranslateTransition(Duration.millis(350), v);
+        tt.setFromY(16);
+        tt.setToY(0);
+        tt.setDelay(Duration.millis(index * 120));
+        ft.play();
+        tt.play();
     }
 
     @Override
