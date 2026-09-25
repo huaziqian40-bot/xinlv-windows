@@ -16,10 +16,16 @@ echo [1/3] maven clean package...
 call "%MVN%" -q clean package
 if errorlevel 1 (echo BUILD FAILED & pause & exit /b 1)
 
+REM 版本号从 pom.xml 读（别再硬编码：改版本时漏改这里的 jar 名会让 jpackage
+REM 报"无法从模块路径找到 com.moodtree.client 模块"）
+for /f "delims=" %%v in ('powershell -NoProfile -Command "[xml](Get-Content pom.xml).project.version"') do set APP_VERSION=%%v
+if "%APP_VERSION%"=="" (echo CANNOT READ VERSION FROM pom.xml & pause & exit /b 1)
+echo       version = %APP_VERSION%
+
 echo [2/3] staging module path (windows javafx jars only)...
 if exist target\pkg-lib rmdir /s /q target\pkg-lib
 mkdir target\pkg-lib
-copy /y target\moodtree-client-1.1.5.jar target\pkg-lib\ >nul
+copy /y target\moodtree-client-%APP_VERSION%.jar target\pkg-lib\ >nul
 copy /y target\lib\javafx-*-win.jar target\pkg-lib\ >nul
 copy /y target\lib\gson-*.jar target\pkg-lib\ >nul
 copy /y target\lib\sqlite-jdbc-*.jar target\pkg-lib\ >nul
@@ -33,7 +39,7 @@ echo [3/3] jpackage app-image (portable)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.1.5 ^
+  --app-version %APP_VERSION% ^
   --vendor XinLv ^
   --icon src\main\resources\logo.ico ^
   --dest target\dist
@@ -46,7 +52,7 @@ echo building exe installer (WiX)...
   --name XinLv ^
   --module-path target\pkg-lib ^
   --module com.moodtree.client/com.moodtree.client.Main ^
-  --app-version 1.1.5 ^
+  --app-version %APP_VERSION% ^
   --vendor XinLv ^
   --description "XinLv desktop client" ^
   --icon src\main\resources\logo.ico ^
@@ -58,5 +64,5 @@ if errorlevel 1 (echo INSTALLER FAILED (portable is fine) & pause & exit /b 1)
 echo.
 echo ALL DONE:
 echo   portable  target\dist\XinLv\
-echo   installer target\dist\XinLv-1.1.5.exe
+echo   installer target\dist\XinLv-%APP_VERSION%.exe
 pause
