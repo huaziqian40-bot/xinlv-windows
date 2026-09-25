@@ -45,6 +45,13 @@ public class Main extends Application {
             app.showLogin();
         }
         stage.show();
+
+        // 应用内自动更新：后台检查（不阻塞界面）。仅 Windows；macOS 未签名走提示方案。
+        if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            try {
+                com.moodtree.client.updater.Updater.checkAsyncAndExit();
+            } catch (Throwable ignored) { }
+        }
     }
 
     public static void main(String[] args) {
