@@ -33,7 +33,7 @@ import java.util.zip.ZipInputStream;
 public class Updater {
 
     /** 与 pom.xml <version> 保持同步（发布时一起改） */
-    public static final String APP_VERSION = "1.1.6";
+    public static final String APP_VERSION = "1.1.7";
 
     private static final String CHECK_URL =
             "https://phix.ing/api/v1/update/check?product=xinlv&platform=win";
