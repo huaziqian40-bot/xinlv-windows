@@ -46,7 +46,8 @@ public class Main extends Application {
         }
         stage.show();
 
-        // 应用内自动更新：后台检查（不阻塞界面）。仅 Windows；macOS 未签名走提示方案。
+        // 应用内更新：后台只检查，发现新版本弹「确认卡片」（取消 / 跳过本版本 / 更新）。
+        // 用户点「更新」之前不会下载任何东西。
         if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
             try {
                 com.moodtree.client.updater.Updater.checkAsyncAndExit();

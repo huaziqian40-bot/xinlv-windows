@@ -15,6 +15,10 @@
  */
 package com.moodtree.client.updater;
 
+import com.moodtree.client.Config;
+
+import javafx.application.Platform;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,13 +31,14 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.concurrent.FutureTask;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Updater {
 
     /** 与 pom.xml <version> 保持同步（发布时一起改） */
-    public static final String APP_VERSION = "1.1.7";
+    public static final String APP_VERSION = "1.1.8";
 
     private static final String CHECK_URL =
             "https://phix.ing/api/v1/update/check?product=xinlv&platform=win";
@@ -55,39 +60,86 @@ public class Updater {
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) return false;
 
-            // 简易 JSON 解析：只取 latest_version / url / sha256 / size
+            // 简易 JSON 解析：只取 latest_version / url / sha256 / size / release_notes
             String body = resp.body();
             String latest = jsonString(body, "latest_version");
             String url = jsonString(body, "url");
             String sha = jsonString(body, "sha256");
             if (latest.isEmpty() || url.isEmpty() || sha.isEmpty()) return false;
             if (latest.equals(APP_VERSION)) return false;
+            // 用户曾「跳过本版本」：该版本不再提示（更高的新版本仍会提示）
+            if (latest.equals(new Config().skippedUpdateVersion())) return false;
 
-            // 记录待更新信息供 applyUpdate 使用
-            pending(url, sha);
+            // 记录待更新信息供卡片与 applyUpdate 使用
+            pending(latest, url, sha, jsonString(body, "release_notes"));
             return true;
         } catch (Exception e) {
             return false; // 断网/服务器不可用：静默跳过，下次启动再试
         }
     }
 
-    // 简单 JSON 字段提取（项目未引入 JSON 库时用最小实现；值必须是字符串）
+    // 简单 JSON 字段提取（项目未引入 JSON 库时用最小实现；值必须是字符串）。
+    // 正确处理反斜杠转义（引号、反斜杠、换行、Unicode 十六进制序列），
+    // 避免被「更新内容里的引号」提前截断。
     private static String jsonString(String json, String key) {
-        int i = json.indexOf("\"" + key + "\"");
+        String needle = "\"" + key + "\"";
+        int i = json.indexOf(needle);
         if (i < 0) return "";
-        i = json.indexOf(':', i + key.length() + 2);
+        i = json.indexOf(':', i + needle.length());
         if (i < 0) return "";
-        i = json.indexOf('"', i);
-        if (i < 0) return "";
-        int j = json.indexOf('"', i + 1);
-        if (j < 0) return "";
-        return json.substring(i + 1, j);
+        i++;
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+        if (i >= json.length() || json.charAt(i) != '"') return "";
+        i++; // 跳过开头的引号
+        StringBuilder sb = new StringBuilder();
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '\\') {
+                i++;
+                if (i >= json.length()) break;
+                char e = json.charAt(i);
+                switch (e) {
+                    case 'n': sb.append('\n'); break;
+                    case 'r': sb.append('\r'); break;
+                    case 't': sb.append('\t'); break;
+                    case 'b': sb.append('\b'); break;
+                    case 'f': sb.append('\f'); break;
+                    case '"': sb.append('"'); break;
+                    case '\\': sb.append('\\'); break;
+                    case '/': sb.append('/'); break;
+                    case 'u': {
+                        if (i + 4 < json.length()) {
+                            try {
+                                sb.append((char) Integer.parseInt(json.substring(i + 1, i + 5), 16));
+                                i += 4;
+                            } catch (Exception ignored) { /* 非法转义序列保持原样 */ }
+                        }
+                        break;
+                    }
+                    default: sb.append(e); break;
+                }
+                i++;
+            } else if (c == '"') {
+                return sb.toString();
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
     }
 
     // 待更新的下载信息（进程内暂存）
     private static volatile String pendingUrl = "";
     private static volatile String pendingSha = "";
-    private static void pending(String url, String sha) { pendingUrl = url; pendingSha = sha; }
+    private static volatile String pendingVersion = "";
+    private static volatile String pendingNotes = "";
+    private static void pending(String v, String url, String sha, String notes) {
+        pendingVersion = v;
+        pendingUrl = url;
+        pendingSha = sha;
+        pendingNotes = notes;
+    }
 
     /** 下载 → 校验 → 解压 → 写 updater.bat。成功则返回 true（调用方应立即退出当前进程）。 */
     public static boolean applyUpdate() {
@@ -195,18 +247,37 @@ public class Updater {
         }
     }
 
-    /** 后台线程检查更新；返回 true 表示已接管（调用方应尽快退出）。 */
+    /**
+     * 后台线程检查更新；有新版则弹「确认卡片」，不自动下载。
+     * 用户点「更新」才真正下载/替换；「取消」不动；「跳过本版本」记住该版本不再提示。
+     */
     public static void checkAsyncAndExit() {
         Thread t = new Thread(() -> {
             try {
-                if (hasUpdate() && applyUpdate()) {
+                if (!hasUpdate()) return;   // 只检查，绝不自动下载
+                UpdateCard.Choice c = showCard();
+                if (c == UpdateCard.Choice.SKIP) {
+                    Config cfg = new Config();
+                    cfg.setSkippedUpdateVersion(pendingVersion);
+                    cfg.save();
+                    return;
+                }
+                if (c == UpdateCard.Choice.UPDATE && applyUpdate()) {
                     // 给 updater.bat 一点时间接管，然后退出当前实例
                     Thread.sleep(1500);
                     System.exit(0);
                 }
-            } catch (Exception ignored) { }
-        }, "xinlv-auto-updater");
+            } catch (Throwable ignored) { }
+        }, "xinlv-updater-check");
         t.setDaemon(true);
         t.start();
+    }
+
+    /** 跳到 FX 线程弹卡片（阻塞当前后台线程直到用户作出选择）。 */
+    private static UpdateCard.Choice showCard() throws Exception {
+        FutureTask<UpdateCard.Choice> task = new FutureTask<>(() ->
+                UpdateCard.showAndWait(pendingVersion, APP_VERSION, pendingNotes));
+        Platform.runLater(task);
+        return task.get();
     }
 }
