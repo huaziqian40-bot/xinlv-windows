@@ -1,17 +1,21 @@
-/* 心履 Windows 应用内自动更新（jpackage 便携版/安装版通用）。
+/* 心履 Windows 应用内更新（jpackage 便携版/安装版通用）—— **卡片确认制**。
  *
- * 启动时后台检查 https://phix.ing/api/v1/update/check?product=xinlv&platform=win，
- * 有新版本则：
+ * 启动时后台**只检查** https://phix.ing/api/v1/update/check?product=xinlv&platform=win，
+ * 有新版本就弹卡片（版本号 + 本次更新内容 + 取消 / 跳过本版本 / 更新）。
+ * **用户点「更新」之后**才走下面这套下载替换：
  *   1. 下载便携版 zip 到数据目录 .updates/
  *   2. SHA256 校验（与清单比对，不匹配丢弃）
  *   3. 解压到程序目录旁的 .update-staging/
  *   4. 写 updater.bat：等本进程退出 → 把新目录移到 XinLv/ 位置 → 重启 → 删自身
  *
+ * 「取消」不记任何东西（下次启动还会提示）；「跳过本版本」把版本号写进 Config，
+ * 该版本之后静默，但更高的版本仍会提示。
+ *
  * 便携目录定位：jpackage 便携版运行时 user.dir 即安装目录（含 XinLv.exe）；
  * 安装版（%LOCALAPPDATA%\\Programs\\XinLv）同理。数据在 user.home/.moodtree，
  * 替换程序目录不影响任何用户数据。
  *
- * 仅 Windows：macOS 未签名不走自动替换（见 _macos 提示方案）。
+ * 仅 Windows；macOS 见 UpdaterMac。
  */
 package com.moodtree.client.updater;
 
