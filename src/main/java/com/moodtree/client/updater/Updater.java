@@ -36,13 +36,14 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Updater {
 
     /** 与 pom.xml <version> 保持同步（发布时一起改） */
-    public static final String APP_VERSION = "1.1.9";
+    public static final String APP_VERSION = "1.1.10";
 
     private static final String CHECK_URL =
             "https://phix.ing/api/v1/update/check?product=xinlv&platform=win";
@@ -80,6 +81,105 @@ public class Updater {
         } catch (Exception e) {
             return false; // 断网/服务器不可用：静默跳过，下次启动再试
         }
+    }
+
+    // ---------- 「关于软件」手动检查更新 ----------
+    //
+    // 启动检查把"没有新版本"和"检查失败"都压成 false，静默处理没问题；
+    // 但手动检查必须把这两种**相反**的状态分开，否则断网会误显示成
+    // 「已是最新版本」（用户最讨厌的经典 bug）。
+    // 所以手动检查返回三态：已是最新 / 发现新版本 / 检查失败。
+
+    /** 手动检查更新的三种结果。 */
+    public enum UpdateCheckResult { UP_TO_DATE, NEW_VERSION, FAILED }
+
+    // 防止「启动检查」和「手动检查」同时弹卡（叠出两个对话框）
+    private static final AtomicBoolean CARD_IN_FLIGHT = new AtomicBoolean(false);
+
+    /**
+     * 纯分类逻辑：根据已拉取的清单字段判断检查结果。
+     * 不碰网络（测试也走这里，用桩数据驱动）：
+     *   - 拿不到版本号、或缺更新包必备字段 → FAILED（坏响应，绝不当"已是最新"）；
+     *   - 版本相同、或用户已「跳过本版本」→ UP_TO_DATE；
+     *   - 其余 → NEW_VERSION。
+     */
+    public static UpdateCheckResult classify(String latest, String url, String sha) {
+        return classify(latest, url, sha, new Config());
+    }
+
+    /** 可注入 Config 的纯分类（带 Config 版本给测试用，避免读真实用户配置）。 */
+    public static UpdateCheckResult classify(String latest, String url, String sha, Config cfg) {
+        if (latest == null || latest.isEmpty()) return UpdateCheckResult.FAILED;      // 坏响应：没有版本号
+        if (url == null || url.isEmpty() || sha == null || sha.isEmpty()) return UpdateCheckResult.FAILED; // 拿不到更新包
+        if (latest.equals(APP_VERSION)) return UpdateCheckResult.UP_TO_DATE;
+        if (latest.equals(cfg.skippedUpdateVersion())) return UpdateCheckResult.UP_TO_DATE; // 用户已跳过
+        return UpdateCheckResult.NEW_VERSION;
+    }
+
+    /** 手动「检查更新」：任何一步不对（断网/超时/非 200/坏响应）都判 FAILED，绝不吞成"已是最新"。 */
+    public static UpdateCheckResult manualCheck() {
+        try {
+            HttpClient http = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(6))
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+            HttpRequest req = HttpRequest.newBuilder(URI.create(CHECK_URL))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("User-Agent", USER_AGENT)
+                    .GET().build();
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) return UpdateCheckResult.FAILED;
+            String body = resp.body();
+            String latest = jsonString(body, "latest_version");
+            String url = jsonString(body, "url");
+            String sha = jsonString(body, "sha256");
+            UpdateCheckResult r = classify(latest, url, sha);
+            // 有新版本时暂存下载信息，供下方既有「确认卡片」流程使用
+            if (r == UpdateCheckResult.NEW_VERSION) {
+                pending(latest, url, sha, jsonString(body, "release_notes"));
+            }
+            return r;
+        } catch (Exception e) {
+            return UpdateCheckResult.FAILED; // 断网/超时：明确报「检查失败」，不是"已是最新"
+        }
+    }
+
+    /** 手动检查暂存的新版本号（用于拼「发现新版本 vX」；无则空串）。 */
+    public static String newVersion() {
+        return pendingVersion == null ? "" : pendingVersion;
+    }
+
+    /** 检查结果 → 界面提示文案（纯映射，测试直接测）。 */
+    public static String messageFor(UpdateCheckResult r, String newVersion) {
+        return switch (r) {
+            case UP_TO_DATE -> "已是最新版本";
+            case NEW_VERSION -> "发现新版本 v" + (newVersion == null ? "" : newVersion);
+            case FAILED -> "检查失败，请稍后再试";
+        };
+    }
+
+    /**
+     * 手动检查发现新版本后，走既有「确认卡片」流程（不重复拉取，直接弹卡）。
+     * 在后台线程（Bg）调用；与启动卡片用 CARD_IN_FLIGHT 互斥，绝不叠两个对话框。
+     */
+    public static void runManualUpdateFlow() {
+        if (!CARD_IN_FLIGHT.compareAndSet(false, true)) return;
+        new Thread(() -> {
+            try {
+                if (pendingUrl.isEmpty() || pendingSha.isEmpty()) return; // 没有待更新信息
+                UpdateCard.Choice c = showCard();
+                if (c == UpdateCard.Choice.SKIP) {
+                    Config cfg = new Config();
+                    cfg.setSkippedUpdateVersion(pendingVersion);
+                    cfg.save();
+                } else if (c == UpdateCard.Choice.UPDATE && applyUpdate()) {
+                    // 给 updater.bat 一点时间接管，然后退出当前实例
+                    Thread.sleep(1500);
+                    System.exit(0);
+                }
+            } catch (Throwable ignored) { }
+            finally { CARD_IN_FLIGHT.set(false); }
+        }, "xinlv-updater-manual").start();
     }
 
     // 简单 JSON 字段提取（项目未引入 JSON 库时用最小实现；值必须是字符串）。
@@ -256,6 +356,7 @@ public class Updater {
      * 用户点「更新」才真正下载/替换；「取消」不动；「跳过本版本」记住该版本不再提示。
      */
     public static void checkAsyncAndExit() {
+        if (!CARD_IN_FLIGHT.compareAndSet(false, true)) return; // 已有卡片在弹（如手动检查），别再叠一个
         Thread t = new Thread(() -> {
             try {
                 if (!hasUpdate()) return;   // 只检查，绝不自动下载
@@ -272,6 +373,7 @@ public class Updater {
                     System.exit(0);
                 }
             } catch (Throwable ignored) { }
+            finally { CARD_IN_FLIGHT.set(false); }
         }, "xinlv-updater-check");
         t.setDaemon(true);
         t.start();
